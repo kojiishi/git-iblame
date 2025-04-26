@@ -1,0 +1,17 @@
+[package]
+name = "git-iblame"
+version = "0.1.0"
+edition = "2024"
+authors = ["Koji Ishii <kojiishi@gmail.com>"]
+description = "A command line tool to do `git blame` interactively."
+keywords = ["git", "blame"]
+repository = "https://github.com/kojiishi/git-iblame"
+readme = "README.md"
+license = "Apache-2.0"
+exclude = [".github", ".gitignore"]
+
+[dependencies]
+anyhow = "1.0.98"
+chrono = "0.4.40"
+crossterm = { version = "0.29.0", features = ["osc52"] }
+git2 = "0.20.1"
