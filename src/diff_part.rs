@@ -1,6 +1,5 @@
 use std::ops::Range;
 
-use chrono::TimeZone;
 use git2::{BlameHunk, Oid, Time};
 
 #[derive(Debug)]
@@ -34,11 +33,5 @@ impl DiffPart {
             email: signature.email().map_or(String::new(), String::from),
             name: signature.name().map_or(String::new(), String::from),
         }
-    }
-
-    pub fn when_as_local(&self) -> chrono::DateTime<chrono::Local> {
-        chrono::Local
-            .timestamp_opt(self.when.seconds(), self.when.offset_minutes() as u32)
-            .unwrap()
     }
 }

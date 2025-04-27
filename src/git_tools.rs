@@ -1,6 +1,7 @@
 use std::path::{Path, PathBuf};
 
-use git2::{Oid, Repository, RepositoryOpenFlags};
+use chrono::TimeZone;
+use git2::{Oid, Repository, RepositoryOpenFlags, Time};
 
 pub struct GitTools {
     repository: Repository,
@@ -48,5 +49,25 @@ impl GitTools {
         let _ = revwalk.next().unwrap()?;
         let previous_id = revwalk.next().unwrap()?;
         Ok(previous_id)
+    }
+
+    pub fn to_date_time(time: Time) -> Option<chrono::DateTime<chrono::FixedOffset>> {
+        if let Some(tz) = chrono::FixedOffset::east_opt(time.offset_minutes() * 60) {
+            let result = tz.timestamp_opt(time.seconds(), 0);
+            return match result {
+                chrono::MappedLocalTime::Single(datetime) => Some(datetime),
+                chrono::MappedLocalTime::Ambiguous(_, latest) => Some(latest),
+                chrono::MappedLocalTime::None => None,
+            };
+        }
+        None
+    }
+
+    pub fn to_local_date_time(time: Time) -> Option<chrono::DateTime<chrono::Local>> {
+        GitTools::to_date_time(time).map(|datetime| datetime.with_timezone(&chrono::Local))
+    }
+
+    pub fn to_short_debug_str(time: Time) -> String {
+        format!("{} {}", time.seconds(), time.offset_minutes())
     }
 }

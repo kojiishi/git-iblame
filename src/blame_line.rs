@@ -43,11 +43,10 @@ impl BlameLine {
 
         let blame_index = self.number - self.diff_part.range.start;
         let blame = match blame_index {
-            0 => self
-                .diff_part
-                .when_as_local()
-                .format("%Y-%m-%d %H:%M %Z")
-                .to_string(),
+            0 => GitTools::to_local_date_time(self.diff_part.when).map_or_else(
+                || GitTools::to_short_debug_str(self.diff_part.when),
+                |datetime| datetime.format("%Y-%m-%d %H:%M %Z").to_string(),
+            ),
             1 => format!("  {} {}", self.diff_part.email, self.diff_part.name),
             2 => format!("  {}", self.diff_part.commit_id),
             _ => String::new(),
@@ -56,7 +55,11 @@ impl BlameLine {
         queue!(out, style::Print(left_side))?;
 
         if should_reset {
-            queue!(out, style::ResetColor, style::SetAttribute(style::Attribute::Reset))?;
+            queue!(
+                out,
+                style::ResetColor,
+                style::SetAttribute(style::Attribute::Reset)
+            )?;
         }
 
         queue!(out, style::Print(&self.line))?;
