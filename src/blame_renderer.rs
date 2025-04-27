@@ -59,12 +59,16 @@ impl BlameRenderer {
         self.current_number - 1
     }
 
+    fn current_line(&self) -> &BlameLine {
+        &self.lines[self.current_index()]
+    }
+
     fn saturate_index(&self, index: usize) -> usize {
         cmp::min(index, self.lines.len().saturating_sub(1))
     }
 
     fn saturate_number(&self, number: usize) -> usize {
-        cmp::min(cmp::max(number, 1), self.lines.len())
+        cmp::max(cmp::min(number, self.lines.len()),1)
     }
 
     fn set_current_index(&mut self, index: usize) {
@@ -148,7 +152,7 @@ impl BlameRenderer {
     }
 
     pub fn current_commit_id(&self) -> Oid {
-        self.lines[self.current_index()].diff_part.commit_id
+        self.current_line().diff_part.commit_id
     }
 
     fn set_newest_commit_id(&mut self, id: Oid) -> anyhow::Result<()> {

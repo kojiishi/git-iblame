@@ -1,3 +1,11 @@
+[![crate-badge]][crate]
+[![docs-badge]][docs]
+
+[crate-badge]: https://img.shields.io/crates/v/git-iblame.svg
+[crate]: https://crates.io/crates/git-iblame
+[docs-badge]: https://docs.rs/git-iblame/badge.svg
+[docs]: https://docs.rs/git-iblame/
+
 # git-iblame
 
 A command line tool to do `git blame` interactively.
@@ -9,6 +17,12 @@ A command line tool to do `git blame` interactively.
 * [Install Rust] if you haven't done so yet.
 
 [install Rust]: https://rustup.rs/
+
+## From [`crates.io`][crate]
+
+```shell-session
+cargo install git-iblame
+```
 
 ## From [github]
 
@@ -32,6 +46,10 @@ specify the path of the file in a git repository.
 ```shell-session
 git-iblame <path-to-file>
 ```
+
+The output is similar to `git blame`,
+except that the current line is highlighted.
+
 Following commands are available:
 * **Enter**: Run `git blame` on one older commit
   of the current commit.
