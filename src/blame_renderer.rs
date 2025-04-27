@@ -68,7 +68,7 @@ impl BlameRenderer {
     }
 
     fn saturate_number(&self, number: usize) -> usize {
-        cmp::max(cmp::min(number, self.lines.len()),1)
+        cmp::max(cmp::min(number, self.lines.len()), 1)
     }
 
     fn set_current_index(&mut self, index: usize) {
@@ -155,17 +155,13 @@ impl BlameRenderer {
         self.current_line().diff_part.commit_id
     }
 
-    fn set_newest_commit_id(&mut self, id: Oid) -> anyhow::Result<()> {
+    pub fn newest_commit_id(&mut self) -> Oid {
+        self.newest_commit_id
+    }
+
+    pub fn set_newest_commit_id(&mut self, id: Oid) -> anyhow::Result<()> {
         self.newest_commit_id = id;
-        if self.newest_commit_id.is_zero() {
-            self.read_file()?;
-        } else {
-            let content = self
-                .git
-                .content_as_string(self.newest_commit_id, &self.relative_path)?;
-            self.read_string(&content)?;
-        }
-        Ok(())
+        self.read()
     }
 
     pub fn set_newest_commit_id_to_older(&mut self) -> anyhow::Result<()> {
@@ -173,7 +169,18 @@ impl BlameRenderer {
         self.set_newest_commit_id(id)
     }
 
-    pub fn read_file(&mut self) -> anyhow::Result<()> {
+    pub fn read(&mut self) -> anyhow::Result<()> {
+        if self.newest_commit_id.is_zero() {
+            self.read_file()
+        } else {
+            let content = self
+                .git
+                .content_as_string(self.newest_commit_id, &self.relative_path)?;
+            self.read_string(&content)
+        }
+    }
+
+    fn read_file(&mut self) -> anyhow::Result<()> {
         let mut file = File::open(&self.original_path)?;
         let mut contents = String::new();
         file.read_to_string(&mut contents)?;

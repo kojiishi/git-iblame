@@ -48,13 +48,14 @@ git-iblame <path-to-file>
 ```
 
 The output is similar to `git blame`,
-except that the current line is highlighted.
+with the current line highlighted.
+You can move the current line,
+or traverse the git history of the current line.
 
 Following commands are available:
-* **Enter**: Run `git blame` on one older commit
-  of the current commit.
-* **Up**/**Down**: Move the current line to
-  the previous/next commit.
+* **Enter**: Traverse to one older commit of the current commit.
+* **Backspace**: Undo the last **Enter** key.
+* **Up**/**Down**: Move the current line to the previous/next commit.
 * **Home**/**End**/**PgUp**/**PgDown**: Move the current line.
 * **Number + Enter**: Go to the line.
 * **c**: Copy the hash of the current commit to the clipboard.
