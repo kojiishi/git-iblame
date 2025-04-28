@@ -44,7 +44,7 @@ impl BlameLine {
         let blame_index = self.number - self.diff_part.range.start;
         let blame = match blame_index {
             0 => GitTools::to_local_date_time(self.diff_part.when).map_or_else(
-                || GitTools::to_short_debug_str(self.diff_part.when),
+                |e| format!("Invalid date/time: {e}"),
                 |datetime| datetime.format("%Y-%m-%d %H:%M %Z").to_string(),
             ),
             1 => format!("  {} {}", self.diff_part.email, self.diff_part.name),

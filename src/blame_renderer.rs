@@ -24,7 +24,7 @@ pub struct BlameRenderer {
 
 impl BlameRenderer {
     pub fn new(path: &Path) -> anyhow::Result<Self> {
-        let git = GitTools::new(path)?;
+        let git = GitTools::from_path(path)?;
 
         let mut relative_path = path.canonicalize()?;
         relative_path = relative_path.strip_prefix(git.root_path())?.to_path_buf();

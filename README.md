@@ -14,7 +14,7 @@ A command line tool to do `git blame` interactively.
 
 ## Prerequisites
 
-* [Install Rust] if you haven't done so yet.
+* [Install Rust] if it's not installed yet.
 
 [install Rust]: https://rustup.rs/
 
@@ -53,7 +53,7 @@ You can move the current line,
 or traverse the git history of the current line.
 
 Following commands are available:
-* **Enter**: Traverse to one older commit of the current commit.
+* **Enter**: Traverse to one older commit of the commit at the current line.
 * **Backspace**: Undo the last **Enter** key.
 * **Up**/**Down**: Move the current line to the previous/next commit.
 * **Home**/**End**/**PgUp**/**PgDown**: Move the current line.
