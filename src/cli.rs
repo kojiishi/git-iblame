@@ -3,6 +3,7 @@ use std::{io::stdout, path::Path};
 use crate::*;
 use crossterm::{clipboard::CopyToClipboard, execute, terminal};
 use git2::Oid;
+use log::*;
 
 pub struct Cli {
     renderer: BlameRenderer,
@@ -18,6 +19,15 @@ impl Cli {
     }
 
     pub fn run(&mut self) -> anyhow::Result<()> {
+        terminal::enable_raw_mode()?;
+        let result = self.run_core();
+        if let Err(e) = terminal::disable_raw_mode() {
+            warn!("Failed to disable raw mode, ignored: {e}");
+        }
+        result
+    }
+
+    fn run_core(&mut self) -> anyhow::Result<()> {
         let renderer = &mut self.renderer;
         let size = terminal::size()?;
         renderer.set_size((size.0, size.1 - 1));

@@ -195,12 +195,13 @@ dependencies = [
 
 [[package]]
 name = "git-iblame"
-version = "0.1.2"
+version = "0.1.3"
 dependencies = [
  "anyhow",
  "chrono",
  "crossterm",
  "git2",
+ "log",
 ]
 
 [[package]]
