@@ -7,14 +7,12 @@ use log::*;
 
 pub struct Cli {
     renderer: BlameRenderer,
-    commit_ids: Vec<Oid>,
 }
 
 impl Cli {
     pub fn new(path: &Path) -> anyhow::Result<Self> {
         Ok(Self {
             renderer: BlameRenderer::new(path)?,
-            commit_ids: vec![],
         })
     }
 
@@ -30,8 +28,9 @@ impl Cli {
     fn run_core(&mut self) -> anyhow::Result<()> {
         let renderer = &mut self.renderer;
         let size = terminal::size()?;
-        renderer.set_size((size.0, size.1 - 1));
+        renderer.set_view_size((size.0, size.1 - 1));
         renderer.read()?;
+        let mut history: Vec<Oid> = vec![];
         let mut out = stdout();
         let prompt = String::new();
         loop {
@@ -45,22 +44,23 @@ impl Cli {
                 Command::PageDown => renderer.move_to_next_page(),
                 Command::FirstLine => renderer.move_to_first_line(),
                 Command::LastLine => renderer.move_to_last_line(),
-                Command::LineNumber(number) => renderer.set_current_number(number),
+                Command::LineNumber(number) => renderer.set_current_line_number(number),
                 Command::Older => {
-                    let id = renderer.newest_commit_id();
-                    renderer.set_newest_commit_id_to_older()?;
-                    self.commit_ids.push(id);
+                    history.push(renderer.commit_id());
+                    renderer.set_commit_id_to_older_than_current_line()?;
                 }
                 Command::Newer => {
-                    if let Some(id) = self.commit_ids.pop() {
-                        renderer.set_newest_commit_id(id)?;
+                    if let Some(commit_id) = history.pop() {
+                        renderer.set_commit_id(commit_id)?;
                     }
                 }
                 Command::Copy => execute!(
                     out,
-                    CopyToClipboard::to_clipboard_from(renderer.current_commit_id().to_string())
+                    CopyToClipboard::to_clipboard_from(
+                        renderer.current_line_commit_id().to_string()
+                    )
                 )?,
-                Command::Resize(columns, rows) => renderer.set_size((columns, rows - 1)),
+                Command::Resize(columns, rows) => renderer.set_view_size((columns, rows - 1)),
                 Command::Quit => break,
             }
         }

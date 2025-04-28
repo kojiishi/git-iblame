@@ -38,7 +38,7 @@ impl GitTools {
     }
 
     /// Get the content of a `path` at the tree of the `commit_id` as a string.
-    pub fn content_as_string(&mut self, commit_id: Oid, path: &Path) -> anyhow::Result<String> {
+    pub fn content_as_string(&self, commit_id: Oid, path: &Path) -> anyhow::Result<String> {
         let commit = self.repository.find_commit(commit_id)?;
         let tree = commit.tree()?;
         let entry = tree.get_path(path)?;
