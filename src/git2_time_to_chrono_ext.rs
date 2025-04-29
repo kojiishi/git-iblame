@@ -2,6 +2,20 @@ use anyhow::*;
 use chrono::TimeZone;
 
 /// An extension trait to convert `git2::Time` to `chrono::DateTime`.
+/// # Examples
+/// ```no_run
+/// use git_iblame::Git2TimeToChronoExt;
+///
+/// // Print `git2::Time` to `stdout`.
+/// fn print_git2_time(time: git2::Time) {
+///   println!("{}", time.to_local_date_time().unwrap());
+/// }
+///
+/// // Convert `git2::Time` to `Stirng` in the specified format.
+/// fn git2_time_to_string(time: git2::Time) -> String {
+///   time.to_local_date_time().unwrap().format("%Y-%m-%d %H:%M").to_string()
+/// }
+/// ```
 pub trait Git2TimeToChronoExt {
     /// Convert `git2::Time` to `chrono::DateTime<chrono::FixedOffset>`.
     /// The time zone offset is the value in the `git2::Time`.
@@ -28,10 +42,14 @@ pub trait Git2TimeToChronoExt {
     /// # Examples
     /// ```
     /// use git_iblame::Git2TimeToChronoExt;
-    /// # let time = git2::Time::new(1745693791, 540);
+    /// let time = git2::Time::new(1745196130, -420);
     /// let utc_datetime = time.to_date_time_in(&chrono::Utc);
+    /// assert_eq!(utc_datetime.unwrap().to_string(), "2025-04-21 00:42:10 UTC");
     /// ```
-    fn to_date_time_in<Tz: chrono::TimeZone>(&self, tz: &Tz) -> anyhow::Result<chrono::DateTime<Tz>>;
+    fn to_date_time_in<Tz: chrono::TimeZone>(
+        &self,
+        tz: &Tz,
+    ) -> anyhow::Result<chrono::DateTime<Tz>>;
 
     /// Convert `git2::Time` to `chrono::DateTime` in the local time zone.
     /// This function is a shorthand of:
@@ -39,12 +57,6 @@ pub trait Git2TimeToChronoExt {
     /// # use git_iblame::Git2TimeToChronoExt;
     /// # let time = git2::Time::new(1745693791, 540);
     /// let local_datetime = time.to_date_time_in(&chrono::Local);
-    /// ```
-    /// # Examples
-    /// ```
-    /// use git_iblame::Git2TimeToChronoExt;
-    /// # let time = git2::Time::new(1745693791, 540);
-    /// println!("{}", time.to_local_date_time().unwrap());
     /// ```
     fn to_local_date_time(&self) -> anyhow::Result<chrono::DateTime<chrono::Local>>;
 }
@@ -66,7 +78,10 @@ impl Git2TimeToChronoExt for git2::Time {
         }
     }
 
-    fn to_date_time_in<Tz: chrono::TimeZone>(&self, tz: &Tz) -> anyhow::Result<chrono::DateTime<Tz>> {
+    fn to_date_time_in<Tz: chrono::TimeZone>(
+        &self,
+        tz: &Tz,
+    ) -> anyhow::Result<chrono::DateTime<Tz>> {
         self.to_date_time()
             .map(|datetime| datetime.with_timezone(tz))
     }
