@@ -1,8 +1,7 @@
 use std::path::{Path, PathBuf};
 
 use anyhow::*;
-use chrono::TimeZone;
-use git2::{Oid, Repository, RepositoryOpenFlags, Time};
+use git2::{Oid, Repository, RepositoryOpenFlags};
 
 pub struct GitTools {
     repository: Repository,
@@ -60,62 +59,5 @@ impl GitTools {
         let first_id = revwalk.next().unwrap()?;
         assert_eq!(commit_id, first_id);
         revwalk.next().transpose()
-    }
-
-    /// Convert `git2::Time` to `chrono::DateTime<chrono::FixedOffset>`.
-    /// The time zone is set to the one in the given `git2::Time`.
-    fn to_fixed_date_time(time: Time) -> anyhow::Result<chrono::DateTime<chrono::FixedOffset>> {
-        let tz = chrono::FixedOffset::east_opt(time.offset_minutes() * 60);
-        if tz.is_none() {
-            bail!("Invalid TimeZone {}", time.offset_minutes());
-        }
-        match tz.unwrap().timestamp_opt(time.seconds(), 0) {
-            chrono::MappedLocalTime::Single(datetime) => Ok(datetime),
-            chrono::MappedLocalTime::Ambiguous(_, latest) => Ok(latest),
-            chrono::MappedLocalTime::None => bail!(
-                "Time {} isn't mappable to {}",
-                time.seconds(),
-                time.offset_minutes()
-            ),
-        }
-    }
-
-    fn to_date_time_in<Tz: TimeZone>(time: Time, tz: &Tz) -> anyhow::Result<chrono::DateTime<Tz>> {
-        Self::to_fixed_date_time(time).map(|datetime| datetime.with_timezone(tz))
-    }
-
-    /// Convert `git2::Time` to `chrono::DateTime<chrono::Local>`.
-    /// The time zone is converted to the local time zone.
-    pub fn to_local_date_time(time: Time) -> anyhow::Result<chrono::DateTime<chrono::Local>> {
-        Self::to_date_time_in(time, &chrono::Local)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn to_date_time_east() {
-        let time = Time::new(1745693791, 540);
-        let datetime = GitTools::to_fixed_date_time(time);
-        assert!(datetime.is_ok());
-        assert_eq!(datetime.unwrap().to_string(), "2025-04-27 03:56:31 +09:00");
-    }
-
-    #[test]
-    fn to_date_time_west() {
-        let time = Time::new(1745196130, -420);
-        let datetime = GitTools::to_fixed_date_time(time);
-        assert!(datetime.is_ok());
-        assert_eq!(datetime.unwrap().to_string(), "2025-04-20 17:42:10 -07:00");
-    }
-
-    #[test]
-    fn to_date_time_offset_invalid() {
-        let time = Time::new(0, 100_000);
-        let datetime = GitTools::to_fixed_date_time(time);
-        assert!(datetime.is_err());
-        assert_eq!(datetime.unwrap_err().to_string(), "Invalid TimeZone 100000");
     }
 }

@@ -19,11 +19,7 @@ impl BlameLine {
         }
     }
 
-    pub fn render(
-        &self,
-        out: &mut impl Write,
-        current_line_number: usize,
-    ) -> anyhow::Result<()> {
+    pub fn render(&self, out: &mut impl Write, current_line_number: usize) -> anyhow::Result<()> {
         let mut should_reset = false;
         if self.line_number == current_line_number {
             queue!(
@@ -41,7 +37,7 @@ impl BlameLine {
 
         let blame_index = self.line_number - self.diff_part.line_number.start;
         let blame = match blame_index {
-            0 => GitTools::to_local_date_time(self.diff_part.when).map_or_else(
+            0 => self.diff_part.when.to_local_date_time().map_or_else(
                 |e| format!("Invalid date/time: {e}"),
                 |datetime| datetime.format("%Y-%m-%d %H:%M %Z").to_string(),
             ),
