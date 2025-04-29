@@ -50,13 +50,12 @@ impl GitTools {
     }
 
     /// Get the commit id of one older commit of `commit_id`.
-    pub fn older_commit_id(&self, commit_id: Oid) -> anyhow::Result<Oid> {
+    pub fn older_commit_id(&self, commit_id: Oid) -> Result<Option<Oid>, git2::Error> {
         let mut revwalk = self.repository.revwalk()?;
         revwalk.push(commit_id)?;
         let first_id = revwalk.next().unwrap()?;
         assert_eq!(commit_id, first_id);
-        let previous_id = revwalk.next().unwrap()?;
-        Ok(previous_id)
+        revwalk.next().transpose()
     }
 
     /// Convert `git2::Time` to `chrono::DateTime<chrono::FixedOffset>`.

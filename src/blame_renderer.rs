@@ -1,6 +1,7 @@
 use std::{cmp, collections::HashMap, io::Write, ops::Range, path::Path};
 
 use crate::*;
+use anyhow::bail;
 use crossterm::{cursor, queue, terminal};
 use git2::Oid;
 
@@ -182,7 +183,10 @@ impl BlameRenderer {
     pub fn set_commit_id_to_older_than_current_line(&mut self) -> anyhow::Result<()> {
         let diff_part = &self.current_line().diff_part;
         let id = self.git.older_commit_id(diff_part.commit_id)?;
-        self.set_commit_id(id)
+        if id.is_none() {
+            bail!("No commits before {}", diff_part.commit_id);
+        }
+        self.set_commit_id(id.unwrap())
     }
 
     fn invalidate_render(&mut self) {
