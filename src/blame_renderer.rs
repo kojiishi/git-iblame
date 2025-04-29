@@ -1,7 +1,7 @@
-use std::{collections::HashMap, io::Write, path::Path};
+use std::{collections::HashMap, io::Write, ops::Range, path::Path};
 
 use crate::*;
-use crossterm::{queue, terminal};
+use crossterm::{cursor, queue, terminal};
 use git2::Oid;
 
 pub struct BlameRenderer {
@@ -9,6 +9,8 @@ pub struct BlameRenderer {
     content: Box<BlameContent>,
     view_size: (u16, u16),
     rendered_rows: u16,
+    rendered_current_line_index: usize,
+    rendered_view_start_line_index: usize,
     view_start_line_index: usize,
     current_line_number: usize,
     cache: HashMap<Oid, Box<BlameContent>>,
@@ -26,6 +28,8 @@ impl BlameRenderer {
             content: Box::new(BlameContent::new(Oid::zero(), &relative_path)),
             view_size: terminal::size()?,
             rendered_rows: 0,
+            rendered_current_line_index: 0,
+            rendered_view_start_line_index: 0,
             view_start_line_index: 0,
             current_line_number: 1,
             cache: HashMap::new(),
@@ -39,6 +43,10 @@ impl BlameRenderer {
     pub fn set_view_size(&mut self, size: (u16, u16)) {
         self.view_size = size;
         self.scroll_current_line_into_view();
+    }
+
+    fn view_line_indexes(&self) -> Range<usize> {
+        self.view_start_line_index..self.view_start_line_index + self.view_rows() as usize
     }
 
     pub fn rendered_rows(&self) -> u16 {
@@ -125,6 +133,7 @@ impl BlameRenderer {
 
     pub fn read(&mut self) -> anyhow::Result<()> {
         self.content.read(&self.git)?;
+        self.invalidate_render();
         self.adjust_current_line_to_valid();
         self.scroll_current_line_into_view();
         Ok(())
@@ -132,6 +141,7 @@ impl BlameRenderer {
 
     fn swap_content(&mut self, content: &mut Box<BlameContent>) {
         std::mem::swap(&mut self.content, content);
+        self.invalidate_render();
         self.adjust_current_line_to_valid();
         self.scroll_current_line_into_view();
     }
@@ -161,22 +171,63 @@ impl BlameRenderer {
         self.set_commit_id(id)
     }
 
-    pub fn render(&mut self, out: &mut impl Write) -> anyhow::Result<()> {
-        queue!(out, terminal::Clear(terminal::ClearType::All))?;
+    fn invalidate_render(&mut self) {
+        self.rendered_rows = 0;
+    }
 
+    pub fn render(&mut self, out: &mut impl Write) -> anyhow::Result<()> {
+        if self.rendered_rows > 0
+            && self.rendered_view_start_line_index == self.view_start_line_index
+        {
+            self.render_line(out, self.rendered_current_line_index)?;
+            self.render_line(out, self.current_line_index())?;
+            self.rendered_current_line_index = self.current_line_index();
+            return Ok(());
+        }
+
+        queue!(out, terminal::Clear(terminal::ClearType::All))?;
         let lines = self
             .content
             .lines()
             .iter()
             .skip(self.view_start_line_index)
             .take(self.view_rows() as usize);
-        let mut row = 0;
+        self.rendered_rows = self.render_lines(out, 0, false, lines)?;
+        self.rendered_view_start_line_index = self.view_start_line_index;
+        self.rendered_current_line_index = self.current_line_index();
+        Ok(())
+    }
+
+    fn render_line(&mut self, out: &mut impl Write, line_index: usize) -> anyhow::Result<()> {
+        if !self.view_line_indexes().contains(&line_index) {
+            return Ok(());
+        }
+        let row = (line_index - self.view_start_line_index) as u16;
+        let line = self.content.lines().iter().skip(line_index).take(1);
+        self.render_lines(out, row, true, line)?;
+        Ok(())
+    }
+
+    fn render_lines<'a, Iter>(
+        &self,
+        out: &mut impl Write,
+        start_row: u16,
+        should_clear: bool,
+        lines: Iter,
+    ) -> anyhow::Result<u16>
+    where
+        Iter: Iterator<Item = &'a BlameLine>,
+    {
+        let mut row = start_row;
         let current_line_number = self.current_line_number();
         for line in lines {
-            line.render(out, row, current_line_number)?;
+            queue!(out, cursor::MoveTo(0, row))?;
+            if should_clear {
+                queue!(out, terminal::Clear(terminal::ClearType::CurrentLine))?;
+            }
+            line.render(out, current_line_number)?;
             row += 1;
         }
-        self.rendered_rows = row;
-        Ok(())
+        Ok(row)
     }
 }

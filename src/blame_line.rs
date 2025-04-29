@@ -1,4 +1,4 @@
-use crossterm::{cursor, queue, style};
+use crossterm::{queue, style};
 use std::{fmt, io::Write, rc::Rc};
 
 use crate::*;
@@ -22,10 +22,8 @@ impl BlameLine {
     pub fn render(
         &self,
         out: &mut impl Write,
-        row: u16,
         current_line_number: usize,
     ) -> anyhow::Result<()> {
-        queue!(out, cursor::MoveTo(0, row))?;
         let mut should_reset = false;
         if self.line_number == current_line_number {
             queue!(
