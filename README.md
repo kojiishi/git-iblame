@@ -1,6 +1,9 @@
+[![CI-badge]][CI]
 [![crate-badge]][crate]
 [![docs-badge]][docs]
 
+[CI-badge]: https://github.com/kojiishi/git-iblame/actions/workflows/rust-ci.yml/badge.svg
+[CI]: https://github.com/kojiishi/git-iblame/actions/workflows/rust-ci.yml
 [crate-badge]: https://img.shields.io/crates/v/git-iblame.svg
 [crate]: https://crates.io/crates/git-iblame
 [docs-badge]: https://docs.rs/git-iblame/badge.svg
