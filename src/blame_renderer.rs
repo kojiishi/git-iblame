@@ -195,7 +195,7 @@ impl BlameRenderer {
         self.set_commit_id_line_index(id, Some(line_index))
     }
 
-    fn invalidate_render(&mut self) {
+    pub fn invalidate_render(&mut self) {
         self.rendered_rows = 0;
     }
 

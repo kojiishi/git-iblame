@@ -1,7 +1,7 @@
 use std::{io::stdout, path::Path};
 
 use crate::*;
-use crossterm::{clipboard::CopyToClipboard, execute, terminal};
+use crossterm::{clipboard::CopyToClipboard, cursor, execute, style, terminal};
 use git2::Oid;
 use log::*;
 
@@ -47,10 +47,20 @@ impl Cli {
                 Command::LastLine => renderer.move_to_last_line(),
                 Command::LineNumber(number) => renderer.set_current_line_number(number),
                 Command::Older => {
-                    history.push(renderer.commit_id());
-                    renderer
-                        .set_commit_id_to_older_than_current_line()
-                        .unwrap_or_else(|error| prompt = CommandPrompt::Err { error });
+                    execute!(
+                        out,
+                        terminal::Clear(terminal::ClearType::All),
+                        cursor::MoveTo(0, 0),
+                        style::Print("Working...")
+                    )?;
+                    let old_commit_id = renderer.commit_id();
+                    if let Err(error) = renderer.set_commit_id_to_older_than_current_line() {
+                        prompt = CommandPrompt::Err { error };
+                        // Invalidate because the "working" message cleared the screen.
+                        renderer.invalidate_render();
+                        continue;
+                    }
+                    history.push(old_commit_id);
                 }
                 Command::Newer => {
                     if let Some(commit_id) = history.pop() {
