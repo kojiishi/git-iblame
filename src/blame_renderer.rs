@@ -1,4 +1,4 @@
-use std::{collections::HashMap, io::Write, ops::Range, path::Path};
+use std::{cmp, collections::HashMap, io::Write, ops::Range, path::Path};
 
 use crate::*;
 use crossterm::{cursor, queue, terminal};
@@ -45,8 +45,22 @@ impl BlameRenderer {
         self.scroll_current_line_into_view();
     }
 
+    fn view_end_line_index(&self) -> usize {
+        self.view_start_line_index + self.view_rows() as usize
+    }
+
     fn view_line_indexes(&self) -> Range<usize> {
-        self.view_start_line_index..self.view_start_line_index + self.view_rows() as usize
+        self.view_start_line_index..self.view_end_line_index()
+    }
+
+    fn intersect_ranges(range1: &Range<usize>, range2: &Range<usize>) -> Range<usize> {
+        let start = cmp::max(range1.start, range2.start);
+        let end = cmp::min(range1.end, range2.end);
+        if start < end { start..end } else { 0..0 }
+    }
+
+    fn adjust_line_index_range_into_view(&self, line_index_range: &Range<usize>) -> Range<usize> {
+        Self::intersect_ranges(line_index_range, &self.view_line_indexes())
     }
 
     pub fn rendered_rows(&self) -> u16 {
@@ -176,43 +190,97 @@ impl BlameRenderer {
     }
 
     pub fn render(&mut self, out: &mut impl Write) -> anyhow::Result<()> {
-        if self.rendered_rows > 0
-            && self.rendered_view_start_line_index == self.view_start_line_index
-        {
-            self.render_line(out, self.rendered_current_line_index)?;
-            self.render_line(out, self.current_line_index())?;
-            self.rendered_current_line_index = self.current_line_index();
+        if self.try_render_by_update(out)? {
             return Ok(());
         }
 
         queue!(out, terminal::Clear(terminal::ClearType::All))?;
-        let lines = self
-            .content
-            .lines()
-            .iter()
-            .skip(self.view_start_line_index)
-            .take(self.view_rows() as usize);
-        self.rendered_rows = self.render_lines(out, 0, false, lines)?;
+        self.rendered_rows =
+            self.render_line_index_range_unchecked(out, false, self.view_line_indexes())?;
         self.rendered_view_start_line_index = self.view_start_line_index;
         self.rendered_current_line_index = self.current_line_index();
         Ok(())
     }
 
-    fn render_line(&mut self, out: &mut impl Write, line_index: usize) -> anyhow::Result<()> {
-        if !self.view_line_indexes().contains(&line_index) {
-            return Ok(());
+    fn try_render_by_update(&mut self, out: &mut impl Write) -> anyhow::Result<bool> {
+        if self.rendered_rows == 0 {
+            return Ok(false);
         }
-        let row = (line_index - self.view_start_line_index) as u16;
-        let line = self.content.lines().iter().skip(line_index).take(1);
-        self.render_lines(out, row, true, line)?;
+
+        if self.rendered_view_start_line_index != self.view_start_line_index {
+            let view_start_line_index = self.view_start_line_index;
+            let render_range;
+            if view_start_line_index > self.rendered_view_start_line_index {
+                let scroll_up = view_start_line_index - self.rendered_view_start_line_index;
+                if scroll_up >= self.view_rows() as usize {
+                    return Ok(false);
+                }
+                queue!(out, terminal::ScrollUp(scroll_up as u16))?;
+                let view_end_line_index = self.view_end_line_index();
+                render_range = view_end_line_index - scroll_up..view_end_line_index;
+            } else {
+                let scroll_down = self.rendered_view_start_line_index - view_start_line_index;
+                if scroll_down >= self.view_rows() as usize {
+                    return Ok(false);
+                }
+                queue!(out, terminal::ScrollDown(scroll_down as u16))?;
+                render_range = view_start_line_index..view_start_line_index + scroll_down;
+            }
+            self.render_line_index_range_unchecked(out, false, render_range)?;
+            self.rendered_view_start_line_index = self.view_start_line_index;
+        }
+
+        let current_line_index = self.current_line_index();
+        if self.rendered_current_line_index != current_line_index {
+            self.render_line_index(out, self.rendered_current_line_index)?;
+            self.render_line_index(out, current_line_index)?;
+            self.rendered_current_line_index = current_line_index;
+        }
+        Ok(true)
+    }
+
+    fn render_line_index(&self, out: &mut impl Write, line_index: usize) -> anyhow::Result<()> {
+        self.render_line_index_range(out, true, line_index..line_index + 1)?;
         Ok(())
+    }
+
+    fn render_line_index_range(
+        &self,
+        out: &mut impl Write,
+        should_clear_lines: bool,
+        line_index_range: Range<usize>,
+    ) -> anyhow::Result<u16> {
+        let adjusted_range = self.adjust_line_index_range_into_view(&line_index_range);
+        if adjusted_range.is_empty() {
+            return Ok(0);
+        }
+        self.render_line_index_range_unchecked(out, should_clear_lines, adjusted_range)
+    }
+
+    fn render_line_index_range_unchecked(
+        &self,
+        out: &mut impl Write,
+        should_clear_lines: bool,
+        line_index_range: Range<usize>,
+    ) -> anyhow::Result<u16> {
+        assert!(line_index_range.start >= self.view_start_line_index);
+        assert!(line_index_range.end <= self.view_end_line_index());
+        assert!(!line_index_range.is_empty());
+        let start_row = line_index_range.start - self.view_start_line_index;
+        let lines = self
+            .content
+            .lines()
+            .iter()
+            .take(line_index_range.end)
+            .skip(line_index_range.start);
+        self.render_lines(out, start_row as u16, should_clear_lines, lines)
     }
 
     fn render_lines<'a, Iter>(
         &self,
         out: &mut impl Write,
         start_row: u16,
-        should_clear: bool,
+        should_clear_lines: bool,
         lines: Iter,
     ) -> anyhow::Result<u16>
     where
@@ -222,12 +290,25 @@ impl BlameRenderer {
         let current_line_number = self.current_line_number();
         for line in lines {
             queue!(out, cursor::MoveTo(0, row))?;
-            if should_clear {
+            if should_clear_lines {
                 queue!(out, terminal::Clear(terminal::ClearType::CurrentLine))?;
             }
             line.render(out, current_line_number)?;
             row += 1;
         }
         Ok(row)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn intersect_ranges() {
+        assert_eq!(BlameRenderer::intersect_ranges(&(2..4), &(1..6)), 2..4);
+        assert_eq!(BlameRenderer::intersect_ranges(&(2..4), &(3..6)), 3..4);
+        assert_eq!(BlameRenderer::intersect_ranges(&(2..4), &(1..3)), 2..3);
+        assert_eq!(BlameRenderer::intersect_ranges(&(2..4), &(4..6)), 0..0);
     }
 }
