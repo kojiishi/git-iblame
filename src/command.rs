@@ -33,8 +33,9 @@ impl Command {
                 cursor::MoveTo(0, row),
                 terminal::Clear(terminal::ClearType::CurrentLine),
             )?;
+            let mut has_prompt = true;
             match prompt {
-                CommandPrompt::None => {}
+                CommandPrompt::None => has_prompt = false,
                 CommandPrompt::Err { error } => queue!(
                     out,
                     style::SetForegroundColor(style::Color::White),
@@ -43,7 +44,19 @@ impl Command {
                     style::ResetColor
                 )?,
             };
-            queue!(out, style::Print(format!(":{buffer}")))?;
+            if !has_prompt && buffer.is_empty() {
+                queue!(
+                    out,
+                    cursor::MoveTo(1, row),
+                    style::SetForegroundColor(style::Color::DarkGrey),
+                    style::Print("Enter=drill down, BS=back, q(uit), c(opy SHA1)"),
+                    style::ResetColor,
+                    cursor::MoveTo(0, row),
+                    style::Print(format!(":"))
+                )?;
+            } else {
+                queue!(out, style::Print(format!(":{buffer}")))?;
+            }
             out.flush()?;
 
             match event::read()? {
