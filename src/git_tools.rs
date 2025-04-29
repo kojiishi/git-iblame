@@ -38,15 +38,19 @@ impl GitTools {
     }
 
     /// Get the content of a `path` at the tree of the `commit_id` as a string.
+    /// If `commit_id` is zero, the `head` is used.
     pub fn content_as_string(&self, commit_id: Oid, path: &Path) -> anyhow::Result<String> {
-        let commit = self.repository.find_commit(commit_id)?;
+        let commit = if commit_id.is_zero() {
+            self.repository.head()?.peel_to_commit()?
+        } else {
+            self.repository.find_commit(commit_id)?
+        };
         let tree = commit.tree()?;
         let entry = tree.get_path(path)?;
         let object = entry.to_object(&self.repository)?;
         // https://github.com/rust-lang/git2-rs/issues/1156
         let blob = object.into_blob().unwrap();
-        let content = std::str::from_utf8(blob.content())?.to_string();
-        Ok(content)
+        Ok(std::str::from_utf8(blob.content())?.to_string())
     }
 
     /// Get the commit id of one older commit of `commit_id`.

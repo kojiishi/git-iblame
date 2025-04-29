@@ -1,7 +1,5 @@
 use std::{
     cmp,
-    fs::File,
-    io::Read,
     path::{Path, PathBuf},
     rc::Rc,
 };
@@ -106,22 +104,9 @@ impl BlameContent {
     }
 
     pub fn read(&mut self, git: &GitTools) -> anyhow::Result<()> {
-        if self.commit_id.is_zero() {
-            let path = git.root_path().join(&self.path);
-            self.read_file(&path)?;
-        } else {
-            let content = git.content_as_string(self.commit_id, &self.path)?;
-            self.read_string(&content);
-        }
+        let content = git.content_as_string(self.commit_id, &self.path)?;
+        self.read_string(&content);
         self.read_blame(git)
-    }
-
-    fn read_file(&mut self, path: &Path) -> anyhow::Result<()> {
-        let mut file = File::open(path)?;
-        let mut contents = String::new();
-        file.read_to_string(&mut contents)?;
-        self.read_string(&contents);
-        Ok(())
     }
 
     fn read_string(&mut self, content: &str) {
