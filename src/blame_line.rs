@@ -34,12 +34,12 @@ impl BlameLine {
             should_reset = true;
         }
 
-        if self.line_number == self.diff_part.range.end - 1 {
+        if self.line_number == self.diff_part.line_number.end - 1 {
             queue!(out, style::SetAttribute(style::Attribute::Underlined))?;
             should_reset = true;
         }
 
-        let blame_index = self.line_number - self.diff_part.range.start;
+        let blame_index = self.line_number - self.diff_part.line_number.start;
         let blame = match blame_index {
             0 => GitTools::to_local_date_time(self.diff_part.when).map_or_else(
                 |e| format!("Invalid date/time: {e}"),

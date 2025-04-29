@@ -14,6 +14,7 @@ pub struct BlameContent {
     commit_id: Oid,
     path: PathBuf,
     lines: Vec<BlameLine>,
+    current_line_index: usize,
 }
 
 impl BlameContent {
@@ -23,6 +24,7 @@ impl BlameContent {
             commit_id: commit_id,
             path: path.to_path_buf(),
             lines: vec![],
+            current_line_index: 0,
         }
     }
 
@@ -46,12 +48,41 @@ impl BlameContent {
         &self.lines[index]
     }
 
+    pub fn line_index_from_number(&self, line_number: usize) -> usize {
+        assert!(line_number > 0);
+        line_number.saturating_sub(1)
+    }
+
+    pub fn line_number_from_index(&self, line_index: usize) -> usize {
+        line_index + 1
+    }
+
     pub fn saturate_line_index(&self, index: usize) -> usize {
         cmp::min(index, self.lines.len().saturating_sub(1))
     }
 
-    pub fn saturate_line_number(&self, number: usize) -> usize {
-        cmp::max(cmp::min(number, self.lines.len()), 1)
+    pub fn current_line_index(&self) -> usize {
+        self.current_line_index
+    }
+
+    pub fn current_line_number(&self) -> usize {
+        self.line_number_from_index(self.current_line_index)
+    }
+
+    pub fn current_line(&self) -> &BlameLine {
+        self.line_by_index(self.current_line_index())
+    }
+
+    pub fn set_current_line_index(&mut self, line_index: usize) {
+        self.current_line_index = self.saturate_line_index(line_index);
+    }
+
+    pub fn set_current_line_number(&mut self, line_number: usize) {
+        self.set_current_line_index(self.line_index_from_number(line_number));
+    }
+
+    fn adjust_current_line_to_valid(&mut self) {
+        self.set_current_line_index(self.current_line_index());
     }
 
     pub fn first_line_index_of_diff(&self, index: usize) -> usize {
@@ -99,6 +130,7 @@ impl BlameContent {
             .enumerate()
             .map(|(i, line)| BlameLine::new(i + 1, line))
             .collect();
+        self.adjust_current_line_to_valid();
     }
 
     fn read_blame(&mut self, git: &GitTools) -> anyhow::Result<()> {
@@ -111,7 +143,7 @@ impl BlameContent {
             .blame_file(&self.path, Some(&mut options))?;
         for hunk in blame.iter() {
             let part = Rc::new(DiffPart::new(hunk));
-            for number in part.range.clone() {
+            for number in part.line_number.clone() {
                 self.lines[number - 1].diff_part = Rc::clone(&part);
             }
         }

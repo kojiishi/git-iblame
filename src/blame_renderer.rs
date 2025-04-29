@@ -13,7 +13,6 @@ pub struct BlameRenderer {
     rendered_current_line_index: usize,
     rendered_view_start_line_index: usize,
     view_start_line_index: usize,
-    current_line_number: usize,
     cache: HashMap<Oid, Box<BlameContent>>,
 }
 
@@ -32,7 +31,6 @@ impl BlameRenderer {
             rendered_current_line_index: 0,
             rendered_view_start_line_index: 0,
             view_start_line_index: 0,
-            current_line_number: 1,
             cache: HashMap::new(),
         })
     }
@@ -69,32 +67,29 @@ impl BlameRenderer {
     }
 
     fn current_line_index(&self) -> usize {
-        self.current_line_number - 1
+        self.content.current_line_index()
     }
 
     fn current_line_number(&self) -> usize {
-        self.current_line_number
+        self.content.current_line_number()
     }
 
     fn current_line(&self) -> &BlameLine {
-        self.content.line_by_index(self.current_line_index())
+        self.content.current_line()
     }
 
     pub fn current_line_commit_id(&self) -> Oid {
         self.current_line().diff_part.commit_id
     }
 
-    fn set_current_line_index(&mut self, index: usize) {
-        self.set_current_line_number(index + 1);
-    }
-
-    pub fn set_current_line_number(&mut self, number: usize) {
-        self.current_line_number = self.content.saturate_line_number(number);
+    fn set_current_line_index(&mut self, line_index: usize) {
+        self.content.set_current_line_index(line_index);
         self.scroll_current_line_into_view();
     }
 
-    fn adjust_current_line_to_valid(&mut self) {
-        self.set_current_line_number(self.current_line_number());
+    pub fn set_current_line_number(&mut self, line_number: usize) {
+        self.content.set_current_line_number(line_number);
+        self.scroll_current_line_into_view();
     }
 
     pub fn move_to_first_line(&mut self) {
@@ -102,7 +97,7 @@ impl BlameRenderer {
     }
 
     pub fn move_to_last_line(&mut self) {
-        self.set_current_line_number(self.content.lines_len());
+        self.set_current_line_index(self.content.lines_len().saturating_sub(1));
     }
 
     pub fn move_to_prev_page(&mut self) {
@@ -149,7 +144,6 @@ impl BlameRenderer {
     pub fn read(&mut self) -> anyhow::Result<()> {
         self.content.read(&self.git)?;
         self.invalidate_render();
-        self.adjust_current_line_to_valid();
         self.scroll_current_line_into_view();
         Ok(())
     }
@@ -157,7 +151,6 @@ impl BlameRenderer {
     fn swap_content(&mut self, content: &mut Box<BlameContent>) {
         std::mem::swap(&mut self.content, content);
         self.invalidate_render();
-        self.adjust_current_line_to_valid();
         self.scroll_current_line_into_view();
     }
 
@@ -166,6 +159,10 @@ impl BlameRenderer {
     }
 
     pub fn set_commit_id(&mut self, commit_id: Oid) -> anyhow::Result<()> {
+        self.set_commit_id_line_index(commit_id, None)
+    }
+
+    fn set_commit_id_line_index(&mut self, commit_id: Oid, line_index: Option<usize>) -> anyhow::Result<()> {
         let mut content = if let Some(content) = self.cache.remove(&commit_id) {
             content
         } else {
@@ -173,6 +170,9 @@ impl BlameRenderer {
             content.read(&self.git)?;
             content
         };
+        if let Some(line_index) = line_index {
+            content.set_current_line_index(line_index);
+        }
         self.swap_content(&mut content);
         if content.lines_len() > 0 {
             self.cache.insert(content.commit_id(), content);
@@ -186,7 +186,13 @@ impl BlameRenderer {
         if id.is_none() {
             bail!("No commits before {}", diff_part.commit_id);
         }
-        self.set_commit_id(id.unwrap())
+        let id = id.unwrap();
+
+        let mut line_number = self.current_line_number();
+        assert!(line_number >= diff_part.line_number.start);
+        line_number = line_number - diff_part.line_number.start + diff_part.orig_start_line_number;
+        let line_index = self.content.line_index_from_number(line_number);
+        self.set_commit_id_line_index(id, Some(line_index))
     }
 
     fn invalidate_render(&mut self) {
