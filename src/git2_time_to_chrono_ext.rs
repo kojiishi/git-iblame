@@ -27,7 +27,7 @@ pub trait Git2TimeToChronoExt {
     /// Convert `git2::Time` to `chrono::DateTime` in the specified time zone.
     /// # Examples
     /// ```
-    /// # use git_iblame::Git2TimeToChronoExt;
+    /// use git_iblame::Git2TimeToChronoExt;
     /// # let time = git2::Time::new(1745693791, 540);
     /// let utc_datetime = time.to_date_time_in(&chrono::Utc);
     /// ```
@@ -39,6 +39,12 @@ pub trait Git2TimeToChronoExt {
     /// # use git_iblame::Git2TimeToChronoExt;
     /// # let time = git2::Time::new(1745693791, 540);
     /// let local_datetime = time.to_date_time_in(&chrono::Local);
+    /// ```
+    /// # Examples
+    /// ```
+    /// use git_iblame::Git2TimeToChronoExt;
+    /// # let time = git2::Time::new(1745693791, 540);
+    /// println!("{}", time.to_local_date_time().unwrap());
     /// ```
     fn to_local_date_time(&self) -> anyhow::Result<chrono::DateTime<chrono::Local>>;
 }
