@@ -32,22 +32,25 @@ impl Cli {
         renderer.read()?;
         let mut history: Vec<Oid> = vec![];
         let mut out = stdout();
-        let prompt = String::new();
+        let mut prompt: CommandPrompt = CommandPrompt::None;
         loop {
             renderer.render(&mut out)?;
 
             let command = Command::read(renderer.rendered_rows(), &prompt)?;
+            prompt = CommandPrompt::None;
             match command {
                 Command::PrevDiff => renderer.move_to_prev_diff(),
                 Command::NextDiff => renderer.move_to_next_diff(),
-                Command::PageUp => renderer.move_to_prev_page(),
-                Command::PageDown => renderer.move_to_next_page(),
+                Command::PrevPage => renderer.move_to_prev_page(),
+                Command::NextPage => renderer.move_to_next_page(),
                 Command::FirstLine => renderer.move_to_first_line(),
                 Command::LastLine => renderer.move_to_last_line(),
                 Command::LineNumber(number) => renderer.set_current_line_number(number),
                 Command::Older => {
                     history.push(renderer.commit_id());
-                    renderer.set_commit_id_to_older_than_current_line()?;
+                    renderer
+                        .set_commit_id_to_older_than_current_line()
+                        .unwrap_or_else(|error| prompt = CommandPrompt::Err { error });
                 }
                 Command::Newer => {
                     if let Some(commit_id) = history.pop() {
