@@ -1,4 +1,4 @@
-use std::{cmp, collections::HashMap, io::Write, ops::Range, path::Path};
+use std::{collections::HashMap, io::Write, ops::Range, path::Path};
 
 use crate::*;
 use anyhow::bail;
@@ -52,14 +52,8 @@ impl BlameRenderer {
         self.view_start_line_index..self.view_end_line_index()
     }
 
-    fn intersect_ranges(range1: &Range<usize>, range2: &Range<usize>) -> Range<usize> {
-        let start = cmp::max(range1.start, range2.start);
-        let end = cmp::min(range1.end, range2.end);
-        if start < end { start..end } else { 0..0 }
-    }
-
     fn adjust_line_index_range_into_view(&self, line_index_range: &Range<usize>) -> Range<usize> {
-        Self::intersect_ranges(line_index_range, &self.view_line_indexes())
+        line_index_range.intersect(self.view_line_indexes())
     }
 
     pub fn rendered_rows(&self) -> u16 {
@@ -273,9 +267,9 @@ impl BlameRenderer {
         should_clear_lines: bool,
         line_index_range: Range<usize>,
     ) -> anyhow::Result<u16> {
+        assert!(!line_index_range.is_empty());
         assert!(line_index_range.start >= self.view_start_line_index);
         assert!(line_index_range.end <= self.view_end_line_index());
-        assert!(!line_index_range.is_empty());
         let start_row = line_index_range.start - self.view_start_line_index;
         let lines = self
             .content
@@ -307,18 +301,5 @@ impl BlameRenderer {
             row += 1;
         }
         Ok(row)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn intersect_ranges() {
-        assert_eq!(BlameRenderer::intersect_ranges(&(2..4), &(1..6)), 2..4);
-        assert_eq!(BlameRenderer::intersect_ranges(&(2..4), &(3..6)), 3..4);
-        assert_eq!(BlameRenderer::intersect_ranges(&(2..4), &(1..3)), 2..3);
-        assert_eq!(BlameRenderer::intersect_ranges(&(2..4), &(4..6)), 0..0);
     }
 }
