@@ -1,5 +1,7 @@
-use crossterm::{queue, style};
 use std::{fmt, io::Write, rc::Rc};
+
+use crossterm::{queue, style};
+use git2::Oid;
 
 use crate::*;
 
@@ -17,6 +19,10 @@ impl BlameLine {
             line: line.to_string(),
             ..Default::default()
         }
+    }
+
+    pub fn commit_id(&self) -> Oid {
+        self.diff_part.commit_id()
     }
 
     pub fn render(&self, out: &mut impl Write, current_line_number: usize) -> anyhow::Result<()> {
@@ -37,12 +43,20 @@ impl BlameLine {
 
         let blame_index = self.line_number - self.diff_part.line_number.start;
         let blame = match blame_index {
-            0 => self.diff_part.when.to_local_date_time().map_or_else(
-                |e| format!("Invalid date/time: {e}"),
-                |datetime| datetime.format("%Y-%m-%d %H:%M %Z").to_string(),
+            0 => format!(
+                "#{} {}",
+                self.diff_part.commit.index,
+                self.diff_part.commit.when.to_local_date_time().map_or_else(
+                    |e| format!("Invalid date/time: {e}"),
+                    |datetime| datetime.format("%Y-%m-%d %H:%M %Z").to_string(),
+                )
             ),
-            1 => format!("  {} {}", self.diff_part.email, self.diff_part.name),
-            2 => format!("  {}", self.diff_part.commit_id),
+            1 => format!(
+                "  {} {}",
+                self.diff_part.commit.email.as_ref().map_or("", |s| &s),
+                self.diff_part.commit.name.as_ref().map_or("", |s| &s)
+            ),
+            2 => format!("  {}", self.diff_part.commit.commit_id),
             _ => String::new(),
         };
         let left_side = format!("{number:4}:{blame:25.25}|", number = self.line_number);

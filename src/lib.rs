@@ -7,6 +7,9 @@ pub(crate) use command::*;
 mod diff_part;
 pub(crate) use diff_part::*;
 
+mod blame_commit;
+pub(crate) use blame_commit::*;
+
 mod blame_content;
 pub(crate) use blame_content::*;
 
