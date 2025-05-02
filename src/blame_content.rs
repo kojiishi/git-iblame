@@ -142,7 +142,6 @@ impl BlameContent {
             start_time.elapsed(),
             start_iterate_time.elapsed()
         );
-        panic!("");
         Ok(())
     }
 }
