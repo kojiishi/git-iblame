@@ -230,7 +230,7 @@ impl BlameRenderer {
                 queue!(out, terminal::ScrollDown(scroll_down as u16))?;
                 render_range = view_start_line_index..view_start_line_index + scroll_down;
             }
-            self.render_line_index_range_unchecked(out, false, render_range)?;
+            self.render_line_index_range_unchecked(out, true, render_range)?;
             self.rendered_view_start_line_index = self.view_start_line_index;
         }
 
