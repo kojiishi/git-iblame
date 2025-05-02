@@ -4,6 +4,18 @@ use crate::*;
 use crossterm::{clipboard::CopyToClipboard, cursor, execute, style, terminal};
 use git2::Oid;
 
+/// The `git-iblame` command line interface.
+/// # Examples
+/// ```no_run
+/// use git_iblame::Cli;
+///
+/// # use std::path::PathBuf;
+/// fn main() -> anyhow::Result<()> {
+///   let path = PathBuf::from("path/to/repo");
+///   let mut cli: Cli = Cli::new(&path)?;
+///   cli.run()
+/// }
+/// ```
 pub struct Cli {
     renderer: BlameRenderer,
 }
