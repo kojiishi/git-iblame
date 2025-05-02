@@ -16,7 +16,7 @@ impl Cli {
     }
 
     pub fn run(&mut self) -> anyhow::Result<()> {
-        let terminal_raw_mode = TerminalRawModeScope::new(true)?;
+        let mut terminal_raw_mode = TerminalRawModeScope::new(true)?;
 
         let renderer = &mut self.renderer;
         let size = terminal::size()?;
