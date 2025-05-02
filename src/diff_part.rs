@@ -1,4 +1,4 @@
-use std::{ops::Range, rc::Rc};
+use std::{ops::Range, path::PathBuf, rc::Rc};
 
 use git2::{BlameHunk, Oid, Signature};
 
@@ -8,6 +8,7 @@ use crate::BlameCommit;
 pub struct DiffPart {
     pub line_number: Range<usize>,
     pub orig_start_line_number: usize,
+    pub orig_path: Option<PathBuf>,
     pub commit: Rc<BlameCommit>,
 }
 
@@ -16,6 +17,7 @@ impl Default for DiffPart {
         Self {
             line_number: Range::default(),
             orig_start_line_number: 0,
+            orig_path: None,
             commit: Rc::new(BlameCommit::default()),
         }
     }
@@ -31,6 +33,7 @@ impl DiffPart {
         Self {
             line_number: hunk.final_start_line()..(hunk.final_start_line() + hunk.lines_in_hunk()),
             orig_start_line_number: hunk.orig_start_line(),
+            orig_path: hunk.path().map(PathBuf::from),
             commit,
         }
     }

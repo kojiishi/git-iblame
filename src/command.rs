@@ -20,6 +20,7 @@ pub enum Command {
 
 pub enum CommandPrompt {
     None,
+    Message { message: String },
     Err { error: anyhow::Error },
 }
 
@@ -36,10 +37,12 @@ impl Command {
             let mut has_prompt = true;
             match prompt {
                 CommandPrompt::None => has_prompt = false,
+                CommandPrompt::Message { message } => {
+                    queue!(out, style::Print(format!("{message}")),)?
+                }
                 CommandPrompt::Err { error } => queue!(
                     out,
-                    style::SetForegroundColor(style::Color::White),
-                    style::SetBackgroundColor(style::Color::Red),
+                    style::SetColors(style::Colors::new(style::Color::White, style::Color::Red)),
                     style::Print(format!("{error}")),
                     style::ResetColor
                 )?,

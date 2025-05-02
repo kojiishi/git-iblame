@@ -45,6 +45,7 @@ impl Cli {
                         cursor::MoveTo(0, 0),
                         style::Print("Working...")
                     )?;
+                    let path_before = renderer.path().to_path_buf();
                     let old_commit_id = renderer.commit_id();
                     if let Err(error) = renderer.set_commit_id_to_older_than_current_line() {
                         prompt = CommandPrompt::Err { error };
@@ -53,6 +54,11 @@ impl Cli {
                         continue;
                     }
                     history.push(old_commit_id);
+                    if path_before != renderer.path() {
+                        prompt = CommandPrompt::Message {
+                            message: format!("Path changed to {}", renderer.path().display()),
+                        };
+                    }
                 }
                 Command::Newer => {
                     if let Some(commit_id) = history.pop() {
