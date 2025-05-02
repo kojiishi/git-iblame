@@ -66,14 +66,32 @@ impl Command {
                     }
                     match event.code {
                         event::KeyCode::Char(ch) => {
-                            if buffer.len() == 0 {
+                            if buffer.len() > 0 {
+                                buffer.push(ch);
+                                continue;
+                            }
+                            if event.modifiers & event::KeyModifiers::CONTROL
+                                != event::KeyModifiers::NONE
+                            {
                                 match ch {
-                                    'c' => return Ok(Command::Copy),
-                                    'q' => return Ok(Command::Quit),
-                                    _ => {}
+                                    // `vi`, `emacs`, or `less`-like key bindings.
+                                    'b' => return Ok(Command::PrevPage),
+                                    'f' => return Ok(Command::NextPage),
+                                    'n' => return Ok(Command::NextDiff),
+                                    'p' => return Ok(Command::PrevDiff),
+                                    _ => continue,
                                 }
                             }
-                            buffer.push(ch);
+                            match ch {
+                                'c' => return Ok(Command::Copy),
+                                'q' => return Ok(Command::Quit),
+                                // `vi`, `emacs`, or `less`-like key bindings.
+                                'b' => return Ok(Command::PrevPage),
+                                'f' => return Ok(Command::NextPage),
+                                'j' => return Ok(Command::NextDiff),
+                                'k' => return Ok(Command::PrevDiff),
+                                _ => {}
+                            }
                         }
                         event::KeyCode::Enter => {
                             if buffer.len() == 0 {
