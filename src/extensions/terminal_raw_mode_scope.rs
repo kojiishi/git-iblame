@@ -15,7 +15,7 @@ use log::*;
 /// # fn main() -> std::io::Result<()> {
 /// use git_iblame::TerminalRawModeScope;
 ///
-/// let terminal_raw_mode = TerminalRawModeScope::new(true)?;
+/// let mut terminal_raw_mode = TerminalRawModeScope::new(true)?;
 /// // Do work.
 /// terminal_raw_mode.reset();
 /// # Ok(())
@@ -23,17 +23,24 @@ use log::*;
 /// ```
 pub struct TerminalRawModeScope {
     is_enabled: bool,
+    is_reset: bool,
 }
 
 impl TerminalRawModeScope {
     pub fn new(enable: bool) -> io::Result<Self> {
         Self::enable(enable)?;
-        Ok(Self { is_enabled: enable })
+        Ok(Self {
+            is_enabled: enable,
+            is_reset: false,
+        })
     }
 
-    pub fn reset(&self) {
-        if let Err(error) = Self::enable(!self.is_enabled) {
-            warn!("Failed to change terminal raw mode, ignored: {error}");
+    pub fn reset(&mut self) {
+        if !self.is_reset {
+            if let Err(error) = Self::enable(!self.is_enabled) {
+                warn!("Failed to change terminal raw mode, ignored: {error}");
+            }
+            self.is_reset = true;
         }
     }
 
