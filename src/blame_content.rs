@@ -1,5 +1,6 @@
 use std::{
     cmp,
+    collections::HashMap,
     path::{Path, PathBuf},
     rc::Rc,
     time::Instant,
@@ -86,9 +87,9 @@ impl BlameContent {
     }
 
     pub fn first_line_index_of_diff(&self, index: usize) -> usize {
-        let commit_id = self.lines[index].diff_part.commit_id;
+        let commit_id = self.lines[index].commit_id();
         for i in (0..index).rev() {
-            if self.lines[i].diff_part.commit_id != commit_id {
+            if self.lines[i].commit_id() != commit_id {
                 return i + 1;
             }
         }
@@ -96,9 +97,9 @@ impl BlameContent {
     }
 
     pub fn last_line_index_of_diff(&self, index: usize) -> usize {
-        let commit_id = self.lines[index].diff_part.commit_id;
+        let commit_id = self.lines[index].commit_id();
         for i in index + 1..self.lines.len() {
-            if self.lines[i].diff_part.commit_id != commit_id {
+            if self.lines[i].commit_id() != commit_id {
                 return i - 1;
             }
         }
@@ -123,6 +124,7 @@ impl BlameContent {
     fn read_blame(&mut self, git: &GitTools) -> anyhow::Result<()> {
         debug!("read_blame: {:?}", self.path);
         let start_time = Instant::now();
+
         let mut options = BlameOptions::new();
         if !self.commit_id.is_zero() {
             options.newest_commit(self.commit_id);
@@ -130,13 +132,59 @@ impl BlameContent {
         let blame = git
             .repository()
             .blame_file(&self.path, Some(&mut options))?;
+
+        // To assign indexes to each commit, because the fields of `Rc` are
+        // immutable, create two `BlameCommit` objects: one with only the commit
+        // ID, and one with the signature.
+        struct Entry {
+            commit_id_only: Rc<BlameCommit>,
+            with_signature: BlameCommit,
+        }
+        let mut commit_map = HashMap::<Oid, Entry>::new();
+        let mut diff_parts = Vec::<DiffPart>::new();
         let start_iterate_time = Instant::now();
         for hunk in blame.iter() {
-            let part = Rc::new(DiffPart::new(hunk));
-            for number in part.line_number.clone() {
-                self.lines[number - 1].diff_part = Rc::clone(&part);
+            let diff_part = DiffPart::new(hunk, |commit_id, signature| {
+                if let Some(entry) = commit_map.get(&commit_id) {
+                    return Rc::clone(&entry.commit_id_only);
+                }
+                let commit_id_only = Rc::new(BlameCommit::new_with_commit_id(commit_id));
+                commit_map.insert(
+                    commit_id,
+                    Entry {
+                        commit_id_only: Rc::clone(&commit_id_only),
+                        with_signature: BlameCommit::new_with_signature(commit_id, &signature),
+                    },
+                );
+                commit_id_only
+            });
+            diff_parts.push(diff_part);
+        }
+
+        // To assign indexes to each commit, sort the commits by time.
+        // The `commit_id_only` is no longer needed and thus discarded.
+        let mut commits: Vec<BlameCommit> = commit_map
+            .into_values()
+            .map(|entry| entry.with_signature)
+            .collect();
+        commits.sort_by_key(|commit| commit.when);
+        for (i, commit) in commits.iter_mut().enumerate() {
+            commit.index = i;
+        }
+
+        // Assign the commit to `DiffPart` and `BlameLine`.
+        let commit_map = commits
+            .into_iter()
+            .map(|commit| (commit.commit_id, Rc::new(commit)))
+            .collect::<HashMap<_, _>>();
+        for mut diff_part in diff_parts.into_iter() {
+            diff_part.commit = commit_map.get(&diff_part.commit_id()).unwrap().clone();
+            let diff_part = Rc::new(diff_part);
+            for number in diff_part.line_number.clone() {
+                self.lines[number - 1].diff_part = Rc::clone(&diff_part);
             }
         }
+
         debug!(
             "read_blame: done, elapsed {:?} ({:?} to iterate)",
             start_time.elapsed(),

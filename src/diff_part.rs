@@ -1,15 +1,14 @@
-use std::ops::Range;
+use std::{ops::Range, rc::Rc};
 
-use git2::{BlameHunk, Oid, Time};
+use git2::{BlameHunk, Oid, Signature};
+
+use crate::BlameCommit;
 
 #[derive(Debug)]
 pub struct DiffPart {
     pub line_number: Range<usize>,
     pub orig_start_line_number: usize,
-    pub commit_id: Oid,
-    pub when: Time,
-    pub email: String,
-    pub name: String,
+    pub commit: Rc<BlameCommit>,
 }
 
 impl Default for DiffPart {
@@ -17,24 +16,26 @@ impl Default for DiffPart {
         Self {
             line_number: Range::default(),
             orig_start_line_number: 0,
-            commit_id: Oid::zero(),
-            when: Time::new(0, 0),
-            email: String::new(),
-            name: String::new(),
+            commit: Rc::new(BlameCommit::default()),
         }
     }
 }
 
 impl DiffPart {
-    pub fn new(hunk: BlameHunk) -> Self {
+    pub fn new<F>(hunk: BlameHunk, mut get_commit: F) -> Self
+    where
+        F: FnMut(Oid, &Signature) -> Rc<BlameCommit>,
+    {
         let signature = hunk.final_signature();
+        let commit = get_commit(hunk.final_commit_id(), &signature);
         Self {
             line_number: hunk.final_start_line()..(hunk.final_start_line() + hunk.lines_in_hunk()),
             orig_start_line_number: hunk.orig_start_line(),
-            commit_id: hunk.final_commit_id(),
-            when: signature.when(),
-            email: signature.email().map_or(String::new(), String::from),
-            name: signature.name().map_or(String::new(), String::from),
+            commit,
         }
+    }
+
+    pub fn commit_id(&self) -> Oid {
+        self.commit.commit_id
     }
 }

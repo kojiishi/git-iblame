@@ -73,7 +73,7 @@ impl BlameRenderer {
     }
 
     pub fn current_line_commit_id(&self) -> Oid {
-        self.current_line().diff_part.commit_id
+        self.current_line().commit_id()
     }
 
     fn set_current_line_index(&mut self, line_index: usize) {
@@ -176,9 +176,9 @@ impl BlameRenderer {
 
     pub fn set_commit_id_to_older_than_current_line(&mut self) -> anyhow::Result<()> {
         let diff_part = &self.current_line().diff_part;
-        let id = self.git.older_commit_id(diff_part.commit_id)?;
+        let id = self.git.older_commit_id(diff_part.commit_id())?;
         if id.is_none() {
-            bail!("No commits before {}", diff_part.commit_id);
+            bail!("No commits before {}", diff_part.commit_id());
         }
         let id = id.unwrap();
 
