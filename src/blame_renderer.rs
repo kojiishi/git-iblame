@@ -1,4 +1,4 @@
-use std::{collections::HashMap, io::Write, ops::Range, path::Path};
+use std::{collections::HashMap, io::Write, ops::Range, path::Path, rc::Rc};
 
 use crate::*;
 use anyhow::bail;
@@ -135,6 +135,10 @@ impl BlameRenderer {
         }
     }
 
+    pub fn path(&self) -> &Path {
+        self.content.path()
+    }
+
     pub fn read(&mut self) -> anyhow::Result<()> {
         self.content.read(&self.git)?;
         self.invalidate_render();
@@ -153,14 +157,22 @@ impl BlameRenderer {
     }
 
     pub fn set_commit_id(&mut self, commit_id: Oid) -> anyhow::Result<()> {
-        self.set_commit_id_line_index(commit_id, None)
+        self.set_commit_id_core(commit_id, None, None)
     }
 
-    fn set_commit_id_line_index(&mut self, commit_id: Oid, line_index: Option<usize>) -> anyhow::Result<()> {
+    fn set_commit_id_core(
+        &mut self,
+        commit_id: Oid,
+        path: Option<&Path>,
+        line_index: Option<usize>,
+    ) -> anyhow::Result<()> {
         let mut content = if let Some(content) = self.cache.remove(&commit_id) {
             content
         } else {
-            let mut content = Box::new(BlameContent::new(commit_id, self.content.path()));
+            let mut content = Box::new(BlameContent::new(
+                commit_id,
+                path.unwrap_or_else(|| self.content.path()),
+            ));
             content.read(&self.git)?;
             content
         };
@@ -175,18 +187,20 @@ impl BlameRenderer {
     }
 
     pub fn set_commit_id_to_older_than_current_line(&mut self) -> anyhow::Result<()> {
-        let diff_part = &self.current_line().diff_part;
-        let id = self.git.older_commit_id(diff_part.commit_id())?;
-        if id.is_none() {
+        let diff_part = Rc::clone(&self.current_line().diff_part);
+        let commit_id = self.git.older_commit_id(diff_part.commit_id())?;
+        if commit_id.is_none() {
             bail!("No commits before {}", diff_part.commit_id());
         }
-        let id = id.unwrap();
+        let commit_id = commit_id.unwrap();
 
         let mut line_number = self.current_line_number();
         assert!(line_number >= diff_part.line_number.start);
         line_number = line_number - diff_part.line_number.start + diff_part.orig_start_line_number;
         let line_index = self.content.line_index_from_number(line_number);
-        self.set_commit_id_line_index(id, Some(line_index))
+
+        let path = diff_part.orig_path.as_ref().map(|path| path.as_path());
+        self.set_commit_id_core(commit_id, path, Some(line_index))
     }
 
     pub fn invalidate_render(&mut self) {
