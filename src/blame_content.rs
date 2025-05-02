@@ -86,24 +86,14 @@ impl BlameContent {
         self.set_current_line_index(self.current_line_index());
     }
 
-    pub fn first_line_index_of_diff(&self, index: usize) -> usize {
-        let commit_id = self.lines[index].commit_id();
-        for i in (0..index).rev() {
-            if self.lines[i].commit_id() != commit_id {
-                return i + 1;
-            }
-        }
-        0
+    pub fn first_line_index_of_diff(&self, line_index: usize) -> usize {
+        let diff_part = &self.lines[line_index].diff_part;
+        self.line_index_from_number(diff_part.line_number.start)
     }
 
-    pub fn last_line_index_of_diff(&self, index: usize) -> usize {
-        let commit_id = self.lines[index].commit_id();
-        for i in index + 1..self.lines.len() {
-            if self.lines[i].commit_id() != commit_id {
-                return i - 1;
-            }
-        }
-        self.lines.len() - 1
+    pub fn last_line_index_of_diff(&self, line_index: usize) -> usize {
+        let diff_part = &self.lines[line_index].diff_part;
+        self.line_index_from_number(diff_part.line_number.end.saturating_sub(1))
     }
 
     pub fn read(&mut self, git: &GitTools) -> anyhow::Result<()> {
