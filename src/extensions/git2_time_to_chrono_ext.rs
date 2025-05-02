@@ -22,6 +22,7 @@ pub trait Git2TimeToChronoExt {
     /// # Examples
     /// ```
     /// use git_iblame::Git2TimeToChronoExt;
+    ///
     /// // The Eastern Hemisphere time zone.
     /// let east_time = git2::Time::new(1745693791, 540);
     /// let east_datetime = east_time.to_date_time();
@@ -29,7 +30,7 @@ pub trait Git2TimeToChronoExt {
     /// assert_eq!(east_datetime.unwrap().to_string(), "2025-04-27 03:56:31 +09:00");
     /// ```
     /// ```
-    /// use git_iblame::Git2TimeToChronoExt;
+    /// # use git_iblame::Git2TimeToChronoExt;
     /// // The Western Hemisphere time zone.
     /// let west_time = git2::Time::new(1745196130, -420);
     /// let west_datetime = west_time.to_date_time();
