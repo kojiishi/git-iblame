@@ -2,10 +2,12 @@ use std::{
     cmp,
     path::{Path, PathBuf},
     rc::Rc,
+    time::Instant,
 };
 
 use crate::*;
 use git2::{BlameOptions, Oid};
+use log::*;
 
 #[derive(Debug)]
 pub struct BlameContent {
@@ -119,6 +121,8 @@ impl BlameContent {
     }
 
     fn read_blame(&mut self, git: &GitTools) -> anyhow::Result<()> {
+        debug!("read_blame: {:?}", self.path);
+        let start_time = Instant::now();
         let mut options = BlameOptions::new();
         if !self.commit_id.is_zero() {
             options.newest_commit(self.commit_id);
@@ -126,12 +130,19 @@ impl BlameContent {
         let blame = git
             .repository()
             .blame_file(&self.path, Some(&mut options))?;
+        let start_iterate_time = Instant::now();
         for hunk in blame.iter() {
             let part = Rc::new(DiffPart::new(hunk));
             for number in part.line_number.clone() {
                 self.lines[number - 1].diff_part = Rc::clone(&part);
             }
         }
+        debug!(
+            "read_blame: done, elapsed {:?} ({:?} to iterate)",
+            start_time.elapsed(),
+            start_iterate_time.elapsed()
+        );
+        panic!("");
         Ok(())
     }
 }
