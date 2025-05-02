@@ -1,15 +1,25 @@
 use std::io;
 
 use crossterm::terminal;
-use log::warn;
+use log::*;
 
 /// Enable or disable the
 /// [terminal raw mode](https://docs.rs/crossterm/latest/crossterm/terminal/index.html#raw-mode)
 /// while its instance is in scope.
+///
+/// While it automatically resets the mode when it's out of scope,
+/// `reset()` should be called at the end
+/// to avoid it being dropped earlier.
 /// # Examples
 /// ```no_run
-/// # use git_iblame::TerminalRawModeScope;
-/// let _ = TerminalRawModeScope::new(true);
+/// # fn main() -> std::io::Result<()> {
+/// use git_iblame::TerminalRawModeScope;
+///
+/// let terminal_raw_mode = TerminalRawModeScope::new(true)?;
+/// // Do work.
+/// terminal_raw_mode.reset();
+/// # Ok(())
+/// # }
 /// ```
 pub struct TerminalRawModeScope {
     is_enabled: bool,
@@ -21,7 +31,14 @@ impl TerminalRawModeScope {
         Ok(Self { is_enabled: enable })
     }
 
+    pub fn reset(&self) {
+        if let Err(error) = Self::enable(!self.is_enabled) {
+            warn!("Failed to change terminal raw mode, ignored: {error}");
+        }
+    }
+
     fn enable(enable: bool) -> io::Result<()> {
+        debug!("TerminalRawModeScope.enable({enable})");
         if enable {
             terminal::enable_raw_mode()
         } else {
@@ -32,8 +49,6 @@ impl TerminalRawModeScope {
 
 impl Drop for TerminalRawModeScope {
     fn drop(&mut self) {
-        if let Err(error) = Self::enable(!self.is_enabled) {
-            warn!("Failed to change terminal raw mode, ignored: {error}");
-        }
+        self.reset();
     }
 }
