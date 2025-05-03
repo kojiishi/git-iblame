@@ -111,6 +111,11 @@ impl BlameContent {
         self.adjust_current_line_to_valid();
     }
 
+    #[cfg(test)]
+    pub fn read_string_for_test(&mut self, content: &str) {
+        self.read_string(content);
+    }
+
     fn read_blame(&mut self, git: &GitTools) -> anyhow::Result<()> {
         debug!("read_blame: {:?}", self.path);
         let start_time = Instant::now();
