@@ -71,6 +71,14 @@ impl GitTools {
         assert_eq!(commit_id, first_id);
         revwalk.next().transpose()
     }
+
+    pub fn show(&self, commit_id: Oid) -> anyhow::Result<()> {
+        let mut command = std::process::Command::new("git");
+        command.arg("show").arg(commit_id.to_string());
+        let mut child = command.spawn()?;
+        child.wait()?;
+        Ok(())
+    }
 }
 
 #[cfg(test)]

@@ -14,6 +14,7 @@ pub enum Command {
     Newer,
     LineNumber(usize),
     Copy,
+    Show,
     Repaint,
     Resize(u16, u16),
     Quit,
@@ -53,7 +54,7 @@ impl Command {
                     out,
                     cursor::MoveTo(1, row),
                     style::SetForegroundColor(style::Color::DarkGrey),
-                    style::Print("Enter=drill down, BS=back, q(uit), c(opy SHA1)"),
+                    style::Print("Enter=drill down, BS=back, q(uit), s(how commit), c(opy SHA1)"),
                     style::ResetColor,
                     cursor::MoveTo(0, row),
                     style::Print(format!(":"))
@@ -96,6 +97,7 @@ impl Command {
                                 'j' => return Ok(Command::NextDiff),
                                 'k' => return Ok(Command::PrevDiff),
                                 'r' => return Ok(Command::Repaint),
+                                's' => return Ok(Command::Show),
                                 _ => {}
                             }
                         }
@@ -127,5 +129,22 @@ impl Command {
                 _ => {}
             }
         }
+    }
+
+    pub fn wait_for_any_key(message: &str) -> anyhow::Result<()> {
+        let mut out = stdout();
+        queue!(out, style::Print(message))?;
+        out.flush()?;
+        loop {
+            match event::read()? {
+                event::Event::Key(event) => {
+                    if !event.is_release() {
+                        break;
+                    }
+                }
+                _ => {}
+            }
+        }
+        Ok(())
     }
 }
