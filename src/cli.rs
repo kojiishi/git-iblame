@@ -83,6 +83,7 @@ impl Cli {
                         renderer.current_line_commit_id().to_string()
                     )
                 )?,
+                Command::Repaint => renderer.invalidate_render(),
                 Command::Resize(columns, rows) => renderer.set_view_size((columns, rows - 1)),
                 Command::Quit => break,
             }

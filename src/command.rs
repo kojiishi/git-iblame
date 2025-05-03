@@ -14,6 +14,7 @@ pub enum Command {
     Newer,
     LineNumber(usize),
     Copy,
+    Repaint,
     Resize(u16, u16),
     Quit,
 }
@@ -80,6 +81,7 @@ impl Command {
                                     // `vi`, `emacs`, or `less`-like key bindings.
                                     'b' => return Ok(Command::PrevPage),
                                     'f' => return Ok(Command::NextPage),
+                                    'l' | 'r' => return Ok(Command::Repaint),
                                     'n' => return Ok(Command::NextDiff),
                                     'p' => return Ok(Command::PrevDiff),
                                     _ => continue,
@@ -93,6 +95,7 @@ impl Command {
                                 'f' => return Ok(Command::NextPage),
                                 'j' => return Ok(Command::NextDiff),
                                 'k' => return Ok(Command::PrevDiff),
+                                'r' => return Ok(Command::Repaint),
                                 _ => {}
                             }
                         }
