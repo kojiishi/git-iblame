@@ -35,6 +35,20 @@ impl BlameRenderer {
         })
     }
 
+    #[cfg(test)]
+    pub fn from_git_tools(git: GitTools, path: &Path, view_size: (u16, u16)) -> Self {
+        Self {
+            git: git,
+            content: Box::new(BlameContent::new(Oid::zero(), &path)),
+            view_size,
+            rendered_rows: 0,
+            rendered_current_line_index: 0,
+            rendered_view_start_line_index: 0,
+            view_start_line_index: 0,
+            cache: HashMap::new(),
+        }
+    }
+
     pub fn view_rows(&self) -> u16 {
         self.view_size.1
     }
@@ -315,5 +329,44 @@ impl BlameRenderer {
             row += 1;
         }
         Ok(row)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::git_tools::tests::TempRepository;
+
+    #[test]
+    fn scroll_current_line_into_view() -> anyhow::Result<()> {
+        let git = TempRepository::new()?;
+        let mut renderer = BlameRenderer::from_git_tools(git.git, Path::new("a"), (10, 10));
+        assert_eq!(adjust_start_line_index(&mut renderer, 0, 0, 30, 20), 0);
+
+        assert_eq!(adjust_start_line_index(&mut renderer, 14, 0, 30, 20), 0);
+        assert_eq!(adjust_start_line_index(&mut renderer, 15, 0, 30, 20), 1);
+
+        assert_eq!(adjust_start_line_index(&mut renderer, 15, 10, 30, 20), 10);
+        assert_eq!(adjust_start_line_index(&mut renderer, 14, 10, 30, 20), 9);
+        Ok(())
+    }
+
+    fn adjust_start_line_index(
+        renderer: &mut BlameRenderer,
+        current_line_index: usize,
+        start_line_index: usize,
+        lines: usize,
+        view_rows: u16,
+    ) -> usize {
+        let content = (0..lines)
+            .map(|i| i.to_string())
+            .collect::<Vec<_>>()
+            .join("\n");
+        renderer.content.read_string_for_test(&content);
+        renderer.set_view_size((10, view_rows));
+        renderer.set_current_line_index(current_line_index);
+        renderer.view_start_line_index = start_line_index;
+        renderer.scroll_current_line_into_view();
+        renderer.view_start_line_index
     }
 }

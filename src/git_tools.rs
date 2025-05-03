@@ -26,6 +26,17 @@ impl GitTools {
         })
     }
 
+    #[cfg(test)]
+    fn from_repository(repository: Repository) -> anyhow::Result<Self> {
+        let git_path = repository.path().canonicalize()?;
+        let root_path = git_path.parent().unwrap();
+
+        Ok(Self {
+            repository: repository,
+            root_path: root_path.to_path_buf(),
+        })
+    }
+
     /// Get `git2::Repository`.
     pub fn repository(&self) -> &Repository {
         &self.repository
@@ -59,5 +70,79 @@ impl GitTools {
         let first_id = revwalk.next().unwrap()?;
         assert_eq!(commit_id, first_id);
         revwalk.next().transpose()
+    }
+}
+
+#[cfg(test)]
+pub(crate) mod tests {
+    use std::path::PathBuf;
+
+    use super::*;
+
+    #[cfg(test)]
+    pub(crate) struct TempRepository {
+        pub git: GitTools,
+        _temp_dir: tempfile::TempDir,
+    }
+
+    #[cfg(test)]
+    impl TempRepository {
+        pub fn new() -> anyhow::Result<Self> {
+            let dir = tempfile::TempDir::new()?;
+            let repository = Repository::init(dir.path())?;
+            let mut config = repository.config()?;
+            config.set_str("user.name", "Test User")?;
+            config.set_str("user.email", "test@test.com")?;
+            Ok(Self {
+                git: GitTools::from_repository(repository)?,
+                _temp_dir: dir,
+            })
+        }
+
+        pub fn repository(&self) -> &Repository {
+            self.git.repository()
+        }
+
+        pub fn root_path(&self) -> &Path {
+            self.git.root_path()
+        }
+
+        pub fn commit_file(&self, path: &Path, content: &str) -> anyhow::Result<()> {
+            let file_path = self.root_path().join(path);
+            std::fs::create_dir_all(file_path.parent().unwrap())?;
+            std::fs::write(&file_path, content)?;
+
+            let mut index = self.repository().index()?;
+            index.add_path(path)?;
+            index.write()?;
+
+            let mut signature = self.git.repository.signature()?;
+            let mut signature2 = self.git.repository.signature()?;
+            let tree_id = index.write_tree()?;
+            let tree = self.git.repository.find_tree(tree_id)?;
+            let commit_id = self.git.repository.commit(
+                Some("HEAD"),
+                &mut signature,
+                &mut signature2,
+                "Add file",
+                &tree,
+                &[],
+            )?;
+            assert_eq!(
+                commit_id,
+                self.git.repository.head()?.peel_to_commit()?.id()
+            );
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn content_as_string() -> anyhow::Result<()> {
+        let git = TempRepository::new()?;
+        let path = PathBuf::from("test.txt");
+        let content = "Hello, world!";
+        git.commit_file(&path, content)?;
+        assert_eq!(git.git.content_as_string(Oid::zero(), &path)?, content);
+        Ok(())
     }
 }
