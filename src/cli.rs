@@ -98,6 +98,18 @@ impl Cli {
                     terminal_raw_mode.reset();
                     Command::wait_for_any_key("Press any key to continue...")?;
                 }
+                Command::Help => {
+                    execute!(
+                        out,
+                        terminal::Clear(terminal::ClearType::All),
+                        cursor::MoveTo(0, 0),
+                    )?;
+                    renderer.invalidate_render();
+                    let mut terminal_raw_mode = TerminalRawModeScope::new(false)?;
+                    key_map.print_help();
+                    terminal_raw_mode.reset();
+                    Command::wait_for_any_key("Press any key to continue...")?;
+                }
                 Command::Repaint => renderer.invalidate_render(),
                 Command::Resize(columns, rows) => renderer.set_view_size((columns, rows - 1)),
                 Command::Quit => break,
