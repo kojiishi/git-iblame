@@ -8,15 +8,17 @@ use log::*;
 /// while its instance is in scope.
 ///
 /// While it automatically resets the mode when it's out of scope,
-/// `reset()` should be called at the end
-/// to avoid it being dropped earlier.
+/// `reset()` should be called explicitly when the mode should be reset
+/// or at the end of the scope
+/// to avoid it being dropped earlier by the compiler.
 /// # Examples
 /// ```no_run
 /// # fn main() -> std::io::Result<()> {
 /// use git_iblame::TerminalRawModeScope;
 ///
 /// let mut terminal_raw_mode = TerminalRawModeScope::new(true)?;
-/// // Do work.
+/// // Do the work.
+/// // If it returns early, the terminal raw mode will be reset automatically.
 /// terminal_raw_mode.reset();
 /// # Ok(())
 /// # }
@@ -27,6 +29,8 @@ pub struct TerminalRawModeScope {
 }
 
 impl TerminalRawModeScope {
+    /// Enable the raw mode if `enable` is true,
+    /// or disable it if `enable` is false.
     pub fn new(enable: bool) -> io::Result<Self> {
         Self::enable(enable)?;
         Ok(Self {
@@ -35,6 +39,13 @@ impl TerminalRawModeScope {
         })
     }
 
+    /// Reset the terminal raw mode.
+    /// This should be called when the mode should be reset,
+    /// or at the end of the scope.
+    ///
+    /// Even if the mode should be reset at the end of the scope,
+    /// and that the `Drop` trait should reset the raw mode,
+    /// it should be called to avoid it being dropped earlier by the compiler.
     pub fn reset(&mut self) {
         if !self.is_reset {
             if let Err(error) = Self::enable(!self.is_enabled) {
@@ -55,6 +66,8 @@ impl TerminalRawModeScope {
 }
 
 impl Drop for TerminalRawModeScope {
+    /// Calls `reset()` if it's not already reset.
+    /// This is called when the instance goes out of scope.
     fn drop(&mut self) {
         self.reset();
     }

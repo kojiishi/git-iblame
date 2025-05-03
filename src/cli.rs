@@ -12,7 +12,7 @@ use crate::*;
 ///
 /// # use std::path::PathBuf;
 /// fn main() -> anyhow::Result<()> {
-///   let path = PathBuf::from("path/to/repo");
+///   let path = PathBuf::from("path/to/file");
 ///   let mut cli: Cli = Cli::new(&path)?;
 ///   cli.run()
 /// }
@@ -28,6 +28,7 @@ impl Cli {
         })
     }
 
+    /// Run the `git-iblame` command line interface.
     pub fn run(&mut self) -> anyhow::Result<()> {
         let mut terminal_raw_mode = TerminalRawModeScope::new(true)?;
 
