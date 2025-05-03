@@ -13,10 +13,10 @@ pub struct BlameLine {
 }
 
 impl BlameLine {
-    pub fn new(line_number: usize, line: &str) -> Self {
+    pub fn new(line_number: usize, line: String) -> Self {
         Self {
             line_number,
-            line: line.to_string(),
+            line,
             ..Default::default()
         }
     }

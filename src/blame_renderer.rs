@@ -135,15 +135,25 @@ impl BlameRenderer {
     }
 
     fn scroll_current_line_into_view(&mut self) {
+        // Content may became smaller. Ensure all view rows are filled.
+        let view_rows = self.view_rows() as usize;
+        let max_start_line_index = self.content.lines_len().saturating_sub(view_rows);
+        if self.view_start_line_index > max_start_line_index {
+            self.view_start_line_index = max_start_line_index;
+        }
+
+        // Scroll up to ensure `MARGIN` lines above the current line are visible.
         const MARGIN: usize = 5;
-        let index = self.current_line_index();
-        let above_margin = index.saturating_sub(MARGIN);
+        let line_index = self.current_line_index();
+        let above_margin = line_index.saturating_sub(MARGIN);
         if self.view_start_line_index > above_margin {
             self.view_start_line_index = above_margin;
             return;
         }
-        let below_margin = self.content.saturate_line_index(index + MARGIN);
-        let below_margin_start_index = (below_margin + 1).saturating_sub(self.view_rows() as usize);
+
+        // Scroll down to ensure `MARGIN` lines below the current line are visible.
+        let below_margin = self.content.saturate_line_index(line_index + MARGIN);
+        let below_margin_start_index = (below_margin + 1).saturating_sub(view_rows);
         if self.view_start_line_index < below_margin_start_index {
             self.view_start_line_index = below_margin_start_index;
         }
@@ -341,31 +351,36 @@ mod tests {
     fn scroll_current_line_into_view() -> anyhow::Result<()> {
         let git = TempRepository::new()?;
         let mut renderer = BlameRenderer::from_git_tools(git.git, Path::new("a"), (10, 10));
-        assert_eq!(adjust_start_line_index(&mut renderer, 0, 0, 30, 20), 0);
 
-        assert_eq!(adjust_start_line_index(&mut renderer, 14, 0, 30, 20), 0);
-        assert_eq!(adjust_start_line_index(&mut renderer, 15, 0, 30, 20), 1);
+        // No adjustment needed.
+        assert_eq!(adjust_start_line_index(&mut renderer, 0, 30, 0, 20), 0);
 
-        assert_eq!(adjust_start_line_index(&mut renderer, 15, 10, 30, 20), 10);
-        assert_eq!(adjust_start_line_index(&mut renderer, 14, 10, 30, 20), 9);
+        // Need to scroll up.
+        assert_eq!(adjust_start_line_index(&mut renderer, 14, 30, 0, 20), 0);
+        assert_eq!(adjust_start_line_index(&mut renderer, 15, 30, 0, 20), 1);
+
+        // Need to scroll down.
+        assert_eq!(adjust_start_line_index(&mut renderer, 15, 30, 10, 20), 10);
+        assert_eq!(adjust_start_line_index(&mut renderer, 14, 30, 10, 20), 9);
+
+        // Content is updated to a smaller size. Ensure all view rows are filled.
+        assert_eq!(adjust_start_line_index(&mut renderer, 14, 30, 5, 20), 5);
+        assert_eq!(adjust_start_line_index(&mut renderer, 14, 21, 5, 20), 1);
+        assert_eq!(adjust_start_line_index(&mut renderer, 14, 15, 5, 20), 0);
         Ok(())
     }
 
     fn adjust_start_line_index(
         renderer: &mut BlameRenderer,
         current_line_index: usize,
+        lines_len: usize,
         start_line_index: usize,
-        lines: usize,
         view_rows: u16,
     ) -> usize {
-        let content = (0..lines)
-            .map(|i| i.to_string())
-            .collect::<Vec<_>>()
-            .join("\n");
-        renderer.content.read_string_for_test(&content);
+        renderer.content.set_lines_len_for_test(lines_len);
         renderer.set_view_size((10, view_rows));
-        renderer.set_current_line_index(current_line_index);
         renderer.view_start_line_index = start_line_index;
+        renderer.set_current_line_index(current_line_index);
         renderer.scroll_current_line_into_view();
         renderer.view_start_line_index
     }
