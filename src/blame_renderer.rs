@@ -227,6 +227,13 @@ impl BlameRenderer {
         self.set_commit_id_core(commit_id, path, Some(line_index))
     }
 
+    pub fn show_current_line_commit(&mut self) -> anyhow::Result<()> {
+        let commit_id = self.current_line_commit_id();
+        self.git.show(commit_id)?;
+        self.invalidate_render();
+        Ok(())
+    }
+
     pub fn invalidate_render(&mut self) {
         self.rendered_rows = 0;
     }

@@ -77,12 +77,23 @@ impl Cli {
                         renderer.set_commit_id(commit_id)?;
                     }
                 }
-                Command::Copy => execute!(
-                    out,
-                    CopyToClipboard::to_clipboard_from(
-                        renderer.current_line_commit_id().to_string()
-                    )
-                )?,
+                Command::Copy => {
+                    execute!(
+                        out,
+                        CopyToClipboard::to_clipboard_from(
+                            renderer.current_line_commit_id().to_string()
+                        )
+                    )?;
+                    prompt = CommandPrompt::Message {
+                        message: "Copied to clipboard".to_string(),
+                    };
+                }
+                Command::Show => {
+                    let mut terminal_raw_mode = TerminalRawModeScope::new(false)?;
+                    renderer.show_current_line_commit()?;
+                    terminal_raw_mode.reset();
+                    Command::wait_for_any_key("Press any key to continue...")?;
+                }
                 Command::Repaint => renderer.invalidate_render(),
                 Command::Resize(columns, rows) => renderer.set_view_size((columns, rows - 1)),
                 Command::Quit => break,
