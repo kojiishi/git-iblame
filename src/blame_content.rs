@@ -103,8 +103,11 @@ impl BlameContent {
     }
 
     fn read_string(&mut self, content: &str) {
-        self.lines = content
-            .lines()
+        self.read_lines(content.lines().map(|line| line.to_string()));
+    }
+
+    fn read_lines(&mut self, lines: impl Iterator<Item = String>) {
+        self.lines = lines
             .enumerate()
             .map(|(i, line)| BlameLine::new(i + 1, line))
             .collect();
@@ -112,8 +115,9 @@ impl BlameContent {
     }
 
     #[cfg(test)]
-    pub fn read_string_for_test(&mut self, content: &str) {
-        self.read_string(content);
+    pub fn set_lines_len_for_test(&mut self, lines_len: usize) {
+        let lines = (0..lines_len).map(|i| i.to_string());
+        self.read_lines(lines);
     }
 
     fn read_blame(&mut self, git: &GitTools) -> anyhow::Result<()> {
