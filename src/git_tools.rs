@@ -72,10 +72,13 @@ impl GitTools {
         revwalk.next().transpose()
     }
 
-    pub fn show(&self, commit_id: Oid) -> anyhow::Result<()> {
+    pub fn show(&self, commit_id: Oid, path: Option<&Path>) -> anyhow::Result<()> {
         let mut command = std::process::Command::new("git");
         command.current_dir(self.root_path());
         command.arg("show").arg(commit_id.to_string());
+        if let Some(path) = path {
+            command.arg("--").arg(path);
+        }
         let mut child = command.spawn()?;
         child.wait()?;
         Ok(())

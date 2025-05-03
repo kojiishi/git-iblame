@@ -72,8 +72,9 @@ impl CommandKeyMap {
     fn create_hash_map() ->HashMap<(KeyCode, KeyModifiers), Command> {
         HashMap::from([
             ((KeyCode::Char('c'), KeyModifiers::NONE), Command::Copy),
+            ((KeyCode::Char('d'), KeyModifiers::NONE), Command::ShowDiff),
             ((KeyCode::Char('h'), KeyModifiers::NONE), Command::Help),
-            ((KeyCode::Char('s'), KeyModifiers::NONE), Command::Show),
+            ((KeyCode::Char('s'), KeyModifiers::NONE), Command::ShowCommit),
             ((KeyCode::Char('q'), KeyModifiers::NONE), Command::Quit),
 
             // `vi`, `emacs`, or `less`-like key bindings.
@@ -106,15 +107,16 @@ impl CommandKeyMap {
             ("Show this help.", Command::Help),
             ("Quit the program.", Command::Quit),
 
-            ("#COMMITS", Command::Show),
-            ("Show the current line commit.", Command::Show),
+            ("#COMMITS", Command::ShowCommit),
+            ("Show the current line commit.", Command::ShowCommit),
+            ("Show the current file of the current line commit.", Command::ShowDiff),
             ("Copy the current line commit ID to clipboard.", Command::Copy),
 
-            ("#TRAVERSING TREES", Command::Show),
+            ("#TRAVERSING TREES", Command::Older),
             ("Show the parent tree of the current line commit.", Command::Older),
             ("Back to the last tree.", Command::Newer),
 
-            ("#MOVING", Command::Show),
+            ("#MOVING", Command::NextDiff),
             ("Move to the next diff.", Command::NextDiff),
             ("Move to the previous diff.", Command::PrevDiff),
             ("Move to the next page.", Command::NextPage),

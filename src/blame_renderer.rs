@@ -227,9 +227,16 @@ impl BlameRenderer {
         self.set_commit_id_core(commit_id, path, Some(line_index))
     }
 
-    pub fn show_current_line_commit(&mut self) -> anyhow::Result<()> {
+    pub fn show_current_line_commit(&mut self, current_file_only: bool) -> anyhow::Result<()> {
         let commit_id = self.current_line_commit_id();
-        self.git.show(commit_id)?;
+        self.git.show(
+            commit_id,
+            if current_file_only {
+                Some(self.content.path())
+            } else {
+                None
+            },
+        )?;
         self.invalidate_render();
         Ok(())
     }
