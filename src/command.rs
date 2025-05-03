@@ -2,7 +2,9 @@ use std::io::{Write, stdout};
 
 use crossterm::{cursor, event, queue, style, terminal};
 
-#[derive(Debug)]
+use crate::CommandKeyMap;
+
+#[derive(Clone, Debug, Hash, Eq, PartialEq)]
 pub enum Command {
     PrevDiff,
     NextDiff,
@@ -27,108 +29,102 @@ pub enum CommandPrompt {
 }
 
 impl Command {
-    pub fn read(row: u16, prompt: &CommandPrompt) -> anyhow::Result<Command> {
-        let mut out = stdout();
+    pub fn read(
+        row: u16,
+        key_map: &CommandKeyMap,
+        prompt: &CommandPrompt,
+    ) -> anyhow::Result<Command> {
         let mut buffer = String::new();
         loop {
-            queue!(
-                out,
-                cursor::MoveTo(0, row),
-                terminal::Clear(terminal::ClearType::CurrentLine),
-            )?;
-            let mut has_prompt = true;
-            match prompt {
-                CommandPrompt::None => has_prompt = false,
-                CommandPrompt::Message { message } => {
-                    queue!(out, style::Print(format!("{message}")),)?
-                }
-                CommandPrompt::Err { error } => queue!(
-                    out,
-                    style::SetColors(style::Colors::new(style::Color::White, style::Color::Red)),
-                    style::Print(format!("{error}")),
-                    style::ResetColor
-                )?,
-            };
-            if !has_prompt && buffer.is_empty() {
-                queue!(
-                    out,
-                    cursor::MoveTo(1, row),
-                    style::SetForegroundColor(style::Color::DarkGrey),
-                    style::Print("Enter=drill down, BS=back, q(uit), s(how commit), c(opy SHA1)"),
-                    style::ResetColor,
-                    cursor::MoveTo(0, row),
-                    style::Print(format!(":"))
-                )?;
-            } else {
-                queue!(out, style::Print(format!(":{buffer}")))?;
-            }
-            out.flush()?;
-
+            Self::show_prompt(row, prompt, &buffer)?;
             match event::read()? {
                 event::Event::Key(event) => {
-                    if event.is_release() {
-                        continue;
-                    }
-                    match event.code {
-                        event::KeyCode::Char(ch) => {
-                            if buffer.len() > 0 {
-                                buffer.push(ch);
-                                continue;
-                            }
-                            if event.modifiers & event::KeyModifiers::CONTROL
-                                != event::KeyModifiers::NONE
-                            {
-                                match ch {
-                                    // `vi`, `emacs`, or `less`-like key bindings.
-                                    'b' => return Ok(Command::PrevPage),
-                                    'f' => return Ok(Command::NextPage),
-                                    'l' | 'r' => return Ok(Command::Repaint),
-                                    'n' => return Ok(Command::NextDiff),
-                                    'p' => return Ok(Command::PrevDiff),
-                                    _ => continue,
-                                }
-                            }
-                            match ch {
-                                'c' => return Ok(Command::Copy),
-                                'q' => return Ok(Command::Quit),
-                                // `vi`, `emacs`, or `less`-like key bindings.
-                                'b' => return Ok(Command::PrevPage),
-                                'f' => return Ok(Command::NextPage),
-                                'j' => return Ok(Command::NextDiff),
-                                'k' => return Ok(Command::PrevDiff),
-                                'r' => return Ok(Command::Repaint),
-                                's' => return Ok(Command::Show),
-                                _ => {}
-                            }
-                        }
-                        event::KeyCode::Enter => {
-                            if buffer.len() == 0 {
-                                return Ok(Command::Older);
-                            }
-                            if let Ok(number) = buffer.parse() {
-                                return Ok(Command::LineNumber(number));
-                            }
-                        }
-                        event::KeyCode::Backspace => {
-                            if buffer.len() == 0 {
-                                return Ok(Command::Newer);
-                            }
-                            buffer.pop();
-                        }
-                        event::KeyCode::Esc => buffer.clear(),
-                        event::KeyCode::Up => return Ok(Command::PrevDiff),
-                        event::KeyCode::Down => return Ok(Command::NextDiff),
-                        event::KeyCode::PageUp => return Ok(Command::PrevPage),
-                        event::KeyCode::PageDown => return Ok(Command::NextPage),
-                        event::KeyCode::Home => return Ok(Command::FirstLine),
-                        event::KeyCode::End => return Ok(Command::LastLine),
-                        _ => {}
+                    if let Some(command) = Self::handle_key(key_map, event, &mut buffer) {
+                        return Ok(command);
                     }
                 }
                 event::Event::Resize(columns, rows) => return Ok(Command::Resize(columns, rows)),
                 _ => {}
             }
         }
+    }
+
+    fn show_prompt(row: u16, prompt: &CommandPrompt, buffer: &str) -> anyhow::Result<()> {
+        let mut out = stdout();
+        queue!(
+            out,
+            cursor::MoveTo(0, row),
+            terminal::Clear(terminal::ClearType::CurrentLine),
+        )?;
+        let mut has_prompt = true;
+        match prompt {
+            CommandPrompt::None => has_prompt = false,
+            CommandPrompt::Message { message } => queue!(out, style::Print(format!("{message}")),)?,
+            CommandPrompt::Err { error } => queue!(
+                out,
+                style::SetColors(style::Colors::new(style::Color::White, style::Color::Red)),
+                style::Print(format!("{error}")),
+                style::ResetColor
+            )?,
+        };
+        if !has_prompt && buffer.is_empty() {
+            queue!(
+                out,
+                cursor::MoveTo(1, row),
+                style::SetForegroundColor(style::Color::DarkGrey),
+                style::Print("Enter=drill down, BS=back, q(uit), s(how commit), c(opy SHA1)"),
+                style::ResetColor,
+                cursor::MoveTo(0, row),
+                style::Print(format!(":"))
+            )?;
+        } else {
+            queue!(out, style::Print(format!(":{buffer}")))?;
+        }
+        out.flush()?;
+        Ok(())
+    }
+
+    fn handle_key(
+        key_map: &CommandKeyMap,
+        event: event::KeyEvent,
+        buffer: &mut String,
+    ) -> Option<Command> {
+        if event.is_release() {
+            return None;
+        }
+
+        if buffer.len() > 0 {
+            if let Some(command) = Self::handle_buffer_key(event, buffer) {
+                return Some(command);
+            }
+            return None;
+        }
+        if let Some(command) = key_map.get(event.code, event.modifiers) {
+            return Some(command.clone());
+        }
+        if let Some(command) = Self::handle_buffer_key(event, buffer) {
+            return Some(command);
+        }
+        None
+    }
+
+    fn handle_buffer_key(event: event::KeyEvent, buffer: &mut String) -> Option<Command> {
+        assert!(!event.is_release());
+
+        match event.code {
+            event::KeyCode::Char(ch) => buffer.push(ch),
+            event::KeyCode::Enter => {
+                if let Ok(number) = buffer.parse() {
+                    return Some(Command::LineNumber(number));
+                }
+            }
+            event::KeyCode::Backspace => {
+                buffer.pop();
+            }
+            event::KeyCode::Esc => buffer.clear(),
+            _ => {}
+        }
+        None
     }
 
     pub fn wait_for_any_key(message: &str) -> anyhow::Result<()> {

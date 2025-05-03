@@ -4,6 +4,9 @@ pub use cli::*;
 mod command;
 pub(crate) use command::*;
 
+mod command_key_map;
+pub(crate) use command_key_map::*;
+
 mod diff_part;
 pub(crate) use diff_part::*;
 
