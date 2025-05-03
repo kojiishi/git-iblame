@@ -1,8 +1,9 @@
 use std::{io::stdout, path::Path};
 
-use crate::*;
 use crossterm::{clipboard::CopyToClipboard, cursor, execute, style, terminal};
 use git2::Oid;
+
+use crate::*;
 
 /// The `git-iblame` command line interface.
 /// # Examples
@@ -34,13 +35,16 @@ impl Cli {
         let size = terminal::size()?;
         renderer.set_view_size((size.0, size.1 - 1));
         renderer.read()?;
+
         let mut history: Vec<Oid> = vec![];
         let mut out = stdout();
+        let key_map = CommandKeyMap::new();
         let mut prompt: CommandPrompt = CommandPrompt::None;
         loop {
             renderer.render(&mut out)?;
+            let command_rows = renderer.rendered_rows();
 
-            let command = Command::read(renderer.rendered_rows(), &prompt)?;
+            let command = Command::read(command_rows, &key_map, &prompt)?;
             prompt = CommandPrompt::None;
             match command {
                 Command::PrevDiff => renderer.move_to_prev_diff(),
