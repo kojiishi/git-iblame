@@ -23,8 +23,8 @@ impl CommandKeyMap {
     pub fn print_help(&self) {
         let key_str_from_command = self.key_str_from_command();
         for (help, command) in Self::help_list() {
-            if help.chars().nth(0) == Some('#') {
-                println!("\n        {}\n", &help[1..].to_string());
+            if let Some(heading) = help.strip_prefix('#') {
+                println!("\n        {}\n", heading);
                 continue;
             }
             let key_str = match command {
