@@ -16,7 +16,8 @@ pub enum Command {
     Newer,
     LineNumber(usize),
     Copy,
-    Show,
+    ShowCommit,
+    ShowDiff,
     Repaint,
     Resize(u16, u16),
     Help,
@@ -73,9 +74,7 @@ impl Command {
                 out,
                 cursor::MoveTo(1, row),
                 style::SetForegroundColor(style::Color::DarkGrey),
-                style::Print(
-                    "Enter=drill down, BS=back, q(uit), h(elp), s(how commit), c(opy SHA1)"
-                ),
+                style::Print("h(elp), q(uit), Enter=parent, s(how), d(iff)"),
                 style::ResetColor,
                 cursor::MoveTo(0, row),
                 style::Print(format!(":"))

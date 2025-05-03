@@ -93,9 +93,9 @@ impl Cli {
                         message: "Copied to clipboard".to_string(),
                     };
                 }
-                Command::Show => {
+                Command::ShowCommit | Command::ShowDiff => {
                     let mut terminal_raw_mode = TerminalRawModeScope::new(false)?;
-                    renderer.show_current_line_commit()?;
+                    renderer.show_current_line_commit(command == Command::ShowDiff)?;
                     terminal_raw_mode.reset();
                     Command::wait_for_any_key("Press any key to continue...")?;
                 }
