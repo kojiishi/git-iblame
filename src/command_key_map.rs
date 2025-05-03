@@ -20,10 +20,59 @@ impl CommandKeyMap {
         self.map.get(&(key_code, modifiers))
     }
 
+    pub fn print_help(&self) {
+        let key_str_from_command = self.key_str_from_command();
+        for (help, command) in Self::help_list() {
+            if help.chars().nth(0) == Some('#') {
+                println!("\n        {}\n", &help[1..].to_string());
+                continue;
+            }
+            let key_str = match command {
+                Command::LineNumber(_) => "[number] + Enter".to_string(),
+                _ => key_str_from_command.get(command).unwrap().clone(),
+            };
+            println!("  {:<20} {}", key_str, help);
+        }
+    }
+
+    fn key_str_from_command(&self) -> HashMap<Command, String> {
+        let mut keys_from_command: HashMap<Command, Vec<(KeyCode, KeyModifiers)>> = HashMap::new();
+        for (key, command) in self.map.iter() {
+            keys_from_command
+                .entry(command.clone())
+                .or_insert_with(Vec::new)
+                .push(key.clone());
+        }
+
+        let key_str_from_command: HashMap<Command, String> = keys_from_command
+            .iter()
+            .map(|(command, keys)| {
+                let key_strings: Vec<String> = keys
+                    .iter()
+                    .map(|(key, modifiers)| Self::key_str_from_key(*key, *modifiers))
+                    .collect();
+                (command.clone(), key_strings.join(", "))
+            })
+            .collect();
+        key_str_from_command
+    }
+
+    fn key_str_from_key(key: KeyCode, modifiers: KeyModifiers) -> String {
+        let key_str = key.to_string();
+        if modifiers == KeyModifiers::NONE {
+            key_str
+        } else if modifiers == KeyModifiers::CONTROL {
+            format!("^{}", key_str.to_uppercase())
+        } else {
+            format!("{}+{}", modifiers, key_str)
+        }
+    }
+
     #[rustfmt::skip]
     fn create_hash_map() ->HashMap<(KeyCode, KeyModifiers), Command> {
         HashMap::from([
             ((KeyCode::Char('c'), KeyModifiers::NONE), Command::Copy),
+            ((KeyCode::Char('h'), KeyModifiers::NONE), Command::Help),
             ((KeyCode::Char('s'), KeyModifiers::NONE), Command::Show),
             ((KeyCode::Char('q'), KeyModifiers::NONE), Command::Quit),
 
@@ -49,5 +98,31 @@ impl CommandKeyMap {
             ((KeyCode::Home, KeyModifiers::NONE), Command::FirstLine),
             ((KeyCode::End, KeyModifiers::NONE), Command::LastLine),
         ])
+    }
+
+    #[rustfmt::skip]
+    fn help_list() -> &'static [(&'static str, Command)] {
+        &[
+            ("Show this help.", Command::Help),
+            ("Quit the program.", Command::Quit),
+
+            ("#COMMITS", Command::Show),
+            ("Show the current line commit.", Command::Show),
+            ("Copy the current line commit ID to clipboard.", Command::Copy),
+
+            ("#TRAVERSING TREES", Command::Show),
+            ("Show the parent tree of the current line commit.", Command::Older),
+            ("Back to the last tree.", Command::Newer),
+
+            ("#MOVING", Command::Show),
+            ("Move to the next diff.", Command::NextDiff),
+            ("Move to the previous diff.", Command::PrevDiff),
+            ("Move to the next page.", Command::NextPage),
+            ("Move to the previous page.", Command::PrevPage),
+            ("Move to the first line.", Command::FirstLine),
+            ("Move to the last line.", Command::LastLine),
+            ("Move to the line number.", Command::LineNumber(0)),
+            ("Repaint the screen.", Command::Repaint),
+        ]
     }
 }

@@ -55,11 +55,13 @@ with the current line highlighted.
 You can move the current line,
 or traverse the git history of the current line.
 
-Following commands are available:
-* **Enter**: Traverse to one older commit of the commit at the current line.
+Please see the help by pressing the `h` key
+for the full commands and their key bindings.
+Major commands are:
+* **h**: Show the help.
+* **q**: Quit the program.
+* **s**: Show the commit at the current line.
+* **c**: Copy the hash of the current line commit to the clipboard.
+* **Enter**: Traverse to the parent commit of the commit at the current line.
 * **Backspace**: Undo the last **Enter** key.
 * **Up**/**Down**: Move the current line to the previous/next commit.
-* **Home**/**End**/**PgUp**/**PgDown**: Move the current line.
-* **Number + Enter**: Go to the line.
-* **c**: Copy the hash of the current commit to the clipboard.
-* **q**: Quit the session.
