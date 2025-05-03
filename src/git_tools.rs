@@ -74,6 +74,7 @@ impl GitTools {
 
     pub fn show(&self, commit_id: Oid) -> anyhow::Result<()> {
         let mut command = std::process::Command::new("git");
+        command.current_dir(self.root_path());
         command.arg("show").arg(commit_id.to_string());
         let mut child = command.spawn()?;
         child.wait()?;
