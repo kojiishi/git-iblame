@@ -53,8 +53,8 @@ impl BlameLine {
             ),
             1 => format!(
                 "  {} {}",
-                self.diff_part.commit.email.as_ref().map_or("", |s| &s),
-                self.diff_part.commit.name.as_ref().map_or("", |s| &s)
+                self.diff_part.commit.email.as_ref().map_or("", |s| s),
+                self.diff_part.commit.name.as_ref().map_or("", |s| s)
             ),
             2 => format!("  {}", self.diff_part.commit.commit_id),
             _ => String::new(),

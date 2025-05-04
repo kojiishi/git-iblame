@@ -12,7 +12,7 @@ impl GitTools {
     /// Construct from the `Path` to a file in the repository.
     pub fn from_path(path: &Path) -> anyhow::Result<Self> {
         let repository = Repository::open_ext(
-            &path,
+            path,
             RepositoryOpenFlags::empty(),
             &[] as &[&std::ffi::OsStr],
         )?;
@@ -21,7 +21,7 @@ impl GitTools {
         let root_path = git_path.parent().unwrap();
 
         Ok(Self {
-            repository: repository,
+            repository,
             root_path: root_path.to_path_buf(),
         })
     }
@@ -32,7 +32,7 @@ impl GitTools {
         let root_path = git_path.parent().unwrap();
 
         Ok(Self {
-            repository: repository,
+            repository,
             root_path: root_path.to_path_buf(),
         })
     }
@@ -128,14 +128,13 @@ pub(crate) mod tests {
             index.add_path(path)?;
             index.write()?;
 
-            let mut signature = self.git.repository.signature()?;
-            let mut signature2 = self.git.repository.signature()?;
+            let signature = self.git.repository.signature()?;
             let tree_id = index.write_tree()?;
             let tree = self.git.repository.find_tree(tree_id)?;
             let commit_id = self.git.repository.commit(
                 Some("HEAD"),
-                &mut signature,
-                &mut signature2,
+                &signature,
+                &signature,
                 "Add file",
                 &tree,
                 &[],

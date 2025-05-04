@@ -40,8 +40,8 @@ impl CommandKeyMap {
         for (key, command) in self.map.iter() {
             keys_from_command
                 .entry(command.clone())
-                .or_insert_with(Vec::new)
-                .push(key.clone());
+                .or_default()
+                .push(*key);
         }
 
         let key_str_from_command: HashMap<Command, String> = keys_from_command

@@ -61,7 +61,7 @@ impl Command {
         let mut has_prompt = true;
         match prompt {
             CommandPrompt::None => has_prompt = false,
-            CommandPrompt::Message { message } => queue!(out, style::Print(format!("{message}")),)?,
+            CommandPrompt::Message { message } => queue!(out, style::Print(message.to_string()),)?,
             CommandPrompt::Err { error } => queue!(
                 out,
                 style::SetColors(style::Colors::new(style::Color::White, style::Color::Red)),
@@ -77,7 +77,7 @@ impl Command {
                 style::Print("h(elp), q(uit), Enter=parent, s(how), d(iff)"),
                 style::ResetColor,
                 cursor::MoveTo(0, row),
-                style::Print(format!(":"))
+                style::Print(":".to_string())
             )?;
         } else {
             queue!(out, style::Print(format!(":{buffer}")))?;
@@ -95,7 +95,7 @@ impl Command {
             return None;
         }
 
-        if buffer.len() > 0 {
+        if !buffer.is_empty() {
             if let Some(command) = Self::handle_buffer_key(event, buffer) {
                 return Some(command);
             }
@@ -134,13 +134,10 @@ impl Command {
         queue!(out, style::Print(message))?;
         out.flush()?;
         loop {
-            match event::read()? {
-                event::Event::Key(event) => {
-                    if !event.is_release() {
-                        break;
-                    }
+            if let event::Event::Key(event) = event::read()? {
+                if !event.is_release() {
+                    break;
                 }
-                _ => {}
             }
         }
         Ok(())

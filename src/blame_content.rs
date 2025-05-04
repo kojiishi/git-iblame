@@ -22,7 +22,7 @@ impl BlameContent {
     pub fn new(commit_id: Oid, path: &Path) -> Self {
         assert!(path.is_relative());
         BlameContent {
-            commit_id: commit_id,
+            commit_id,
             path: path.to_path_buf(),
             lines: vec![],
             current_line_index: 0,
@@ -152,7 +152,7 @@ impl BlameContent {
                     commit_id,
                     Entry {
                         commit_id_only: Rc::clone(&commit_id_only),
-                        with_signature: BlameCommit::new_with_signature(commit_id, &signature),
+                        with_signature: BlameCommit::new_with_signature(commit_id, signature),
                     },
                 );
                 commit_id_only
