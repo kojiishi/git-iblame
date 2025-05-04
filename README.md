@@ -13,6 +13,10 @@
 
 A command line tool to do `git blame` interactively.
 
+This tool can traverse to older trees interactively,
+to see all the histories up to the initial commit.
+It makes easy to find out how the code of your interests were changed.
+
 # Install
 
 ## Prerequisites
