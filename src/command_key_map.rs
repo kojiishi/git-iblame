@@ -72,14 +72,27 @@ impl CommandKeyMap {
         }
     }
 
+    fn create_hash_map() -> HashMap<(KeyCode, KeyModifiers), Command> {
+        let mut map = HashMap::new();
+        for (key, command) in Self::key_map_list() {
+            let present = map.insert(*key, command.clone());
+            assert!(present.is_none(), "Duplicate key found: {key:?}");
+        }
+        map
+    }
+
     #[rustfmt::skip]
-    fn create_hash_map() ->HashMap<(KeyCode, KeyModifiers), Command> {
-        HashMap::from([
+    fn key_map_list() -> &'static [((KeyCode, KeyModifiers), Command)] {
+        &[
+            ((KeyCode::Char('h'), KeyModifiers::NONE), Command::Help),
+            ((KeyCode::Char('q'), KeyModifiers::NONE), Command::Quit),
+
             ((KeyCode::Char('c'), KeyModifiers::NONE), Command::Copy),
             ((KeyCode::Char('d'), KeyModifiers::NONE), Command::ShowDiff),
-            ((KeyCode::Char('h'), KeyModifiers::NONE), Command::Help),
             ((KeyCode::Char('s'), KeyModifiers::NONE), Command::ShowCommit),
-            ((KeyCode::Char('q'), KeyModifiers::NONE), Command::Quit),
+
+            ((KeyCode::Enter, KeyModifiers::NONE), Command::Older),
+            ((KeyCode::Backspace, KeyModifiers::NONE), Command::Newer),
 
             // `vi`, `emacs`, or `less`-like key bindings.
             ((KeyCode::Char('b'), KeyModifiers::NONE), Command::PrevPage),
@@ -94,8 +107,6 @@ impl CommandKeyMap {
             ((KeyCode::Char('r'), KeyModifiers::NONE), Command::Repaint),
             ((KeyCode::Char('r'), KeyModifiers::CONTROL), Command::Repaint),
 
-            ((KeyCode::Enter, KeyModifiers::NONE), Command::Older),
-            ((KeyCode::Backspace, KeyModifiers::NONE), Command::Newer),
             ((KeyCode::Up, KeyModifiers::NONE), Command::PrevDiff),
             ((KeyCode::Down, KeyModifiers::NONE), Command::NextDiff),
             ((KeyCode::PageUp, KeyModifiers::NONE), Command::PrevPage),
@@ -105,7 +116,7 @@ impl CommandKeyMap {
 
             ((KeyCode::Char('N'), KeyModifiers::SHIFT), Command::SearchPrev),
             ((KeyCode::Char('n'), KeyModifiers::NONE), Command::SearchNext),
-        ])
+        ]
     }
 
     #[rustfmt::skip]
@@ -143,6 +154,15 @@ impl CommandKeyMap {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn key_map_list_duplicate() {
+        let mut map = HashMap::new();
+        for (key, command) in CommandKeyMap::key_map_list() {
+            let present = map.insert(*key, command.clone());
+            assert!(present.is_none(), "Duplicate key found: {key:?}");
+        }
+    }
 
     #[test]
     fn key_str_from_key() -> anyhow::Result<()> {
