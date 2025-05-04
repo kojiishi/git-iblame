@@ -7,6 +7,9 @@ pub(crate) use command::*;
 mod command_key_map;
 pub(crate) use command_key_map::*;
 
+mod command_prompt;
+pub(crate) use command_prompt::*;
+
 mod diff_part;
 pub(crate) use diff_part::*;
 

@@ -1,8 +1,8 @@
 use std::io::{Write, stdout};
 
-use crossterm::{cursor, event, queue, style, terminal};
+use crossterm::{event, queue, style};
 
-use crate::CommandKeyMap;
+use crate::{CommandKeyMap, CommandPrompt};
 
 #[derive(Clone, Debug, Hash, Eq, PartialEq)]
 pub enum Command {
@@ -27,12 +27,6 @@ pub enum Command {
     Quit,
 }
 
-pub enum CommandPrompt {
-    None,
-    Message { message: String },
-    Err { error: anyhow::Error },
-}
-
 impl Command {
     pub fn read(
         row: u16,
@@ -41,7 +35,7 @@ impl Command {
     ) -> anyhow::Result<Command> {
         let mut buffer = String::new();
         loop {
-            Self::show_prompt(row, prompt, &buffer)?;
+            prompt.show(row, &buffer)?;
             match event::read()? {
                 event::Event::Key(event) => {
                     if let Some(command) = Self::handle_key(key_map, event, &mut buffer) {
@@ -52,43 +46,6 @@ impl Command {
                 _ => {}
             }
         }
-    }
-
-    fn show_prompt(row: u16, prompt: &CommandPrompt, buffer: &str) -> anyhow::Result<()> {
-        let mut out = stdout();
-        queue!(
-            out,
-            cursor::MoveTo(0, row),
-            terminal::Clear(terminal::ClearType::CurrentLine),
-        )?;
-        let mut has_prompt = true;
-        match prompt {
-            CommandPrompt::None => has_prompt = false,
-            CommandPrompt::Message { message } => queue!(out, style::Print(message.to_string()),)?,
-            CommandPrompt::Err { error } => queue!(
-                out,
-                style::SetColors(style::Colors::new(style::Color::White, style::Color::Red)),
-                style::Print(format!("{error}")),
-                style::ResetColor
-            )?,
-        };
-        if !has_prompt && buffer.is_empty() {
-            queue!(
-                out,
-                cursor::MoveTo(1, row),
-                style::SetForegroundColor(style::Color::DarkGrey),
-                style::Print("h(elp), q(uit), Enter=parent, s(how), d(iff)"),
-                style::ResetColor,
-                cursor::MoveTo(0, row),
-                style::Print(":".to_string())
-            )?;
-        } else if buffer.starts_with('/') {
-            queue!(out, style::Print(buffer))?;
-        } else {
-            queue!(out, style::Print(format!(":{buffer}")))?;
-        }
-        out.flush()?;
-        Ok(())
     }
 
     fn handle_key(
