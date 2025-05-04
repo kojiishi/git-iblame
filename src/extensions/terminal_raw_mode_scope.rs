@@ -19,7 +19,7 @@ use log::*;
 /// let mut terminal_raw_mode = TerminalRawModeScope::new(true)?;
 /// // Do the work.
 /// // If it returns early, the terminal raw mode will be reset automatically.
-/// terminal_raw_mode.reset();
+/// terminal_raw_mode.reset()?;
 /// # Ok(())
 /// # }
 /// ```
@@ -46,13 +46,12 @@ impl TerminalRawModeScope {
     /// Even if the mode should be reset at the end of the scope,
     /// and that the `Drop` trait should reset the raw mode,
     /// it should be called to avoid it being dropped earlier by the compiler.
-    pub fn reset(&mut self) {
+    pub fn reset(&mut self) -> io::Result<()> {
         if !self.is_reset {
-            if let Err(error) = Self::enable(!self.is_enabled) {
-                warn!("Failed to change terminal raw mode, ignored: {error}");
-            }
+            Self::enable(!self.is_enabled)?;
             self.is_reset = true;
         }
+        Ok(())
     }
 
     fn enable(enable: bool) -> io::Result<()> {
@@ -69,6 +68,8 @@ impl Drop for TerminalRawModeScope {
     /// Calls `reset()` if it's not already reset.
     /// This is called when the instance goes out of scope.
     fn drop(&mut self) {
-        self.reset();
+        if let Err(error) = self.reset() {
+            warn!("Failed to change terminal raw mode, ignored: {error}");
+        }
     }
 }
