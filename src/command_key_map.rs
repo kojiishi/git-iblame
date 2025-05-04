@@ -128,3 +128,16 @@ impl CommandKeyMap {
         ]
     }
 }
+
+#[cfg(test)]
+pub(crate) mod tests {
+    use super::*;
+
+    #[test]
+    fn key_str_from_key() -> anyhow::Result<()> {
+        let target = CommandKeyMap::key_str_from_key;
+        assert_eq!(target(KeyCode::Char('a'), KeyModifiers::NONE), "a");
+        assert_eq!(target(KeyCode::Char('a'), KeyModifiers::CONTROL), "^A");
+        Ok(())
+    }
+}
