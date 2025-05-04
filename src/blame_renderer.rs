@@ -24,7 +24,7 @@ impl BlameRenderer {
         relative_path = relative_path.strip_prefix(git.root_path())?.to_path_buf();
 
         Ok(Self {
-            git: git,
+            git,
             content: Box::new(BlameContent::new(Oid::zero(), &relative_path)),
             view_size: terminal::size()?,
             rendered_rows: 0,
@@ -38,8 +38,8 @@ impl BlameRenderer {
     #[cfg(test)]
     pub fn from_git_tools(git: GitTools, path: &Path, view_size: (u16, u16)) -> Self {
         Self {
-            git: git,
-            content: Box::new(BlameContent::new(Oid::zero(), &path)),
+            git,
+            content: Box::new(BlameContent::new(Oid::zero(), path)),
             view_size,
             rendered_rows: 0,
             rendered_current_line_index: 0,
@@ -223,7 +223,7 @@ impl BlameRenderer {
         line_number = line_number - diff_part.line_number.start + diff_part.orig_start_line_number;
         let line_index = self.content.line_index_from_number(line_number);
 
-        let path = diff_part.orig_path.as_ref().map(|path| path.as_path());
+        let path = diff_part.orig_path.as_deref();
         self.set_commit_id_core(commit_id, path, Some(line_index))
     }
 
@@ -265,23 +265,22 @@ impl BlameRenderer {
 
         if self.rendered_view_start_line_index != self.view_start_line_index {
             let view_start_line_index = self.view_start_line_index;
-            let render_range;
-            if view_start_line_index > self.rendered_view_start_line_index {
+            let render_range = if view_start_line_index > self.rendered_view_start_line_index {
                 let scroll_up = view_start_line_index - self.rendered_view_start_line_index;
                 if scroll_up >= self.view_rows() as usize {
                     return Ok(false);
                 }
                 queue!(out, terminal::ScrollUp(scroll_up as u16))?;
                 let view_end_line_index = self.view_end_line_index();
-                render_range = view_end_line_index - scroll_up..view_end_line_index;
+                view_end_line_index - scroll_up..view_end_line_index
             } else {
                 let scroll_down = self.rendered_view_start_line_index - view_start_line_index;
                 if scroll_down >= self.view_rows() as usize {
                     return Ok(false);
                 }
                 queue!(out, terminal::ScrollDown(scroll_down as u16))?;
-                render_range = view_start_line_index..view_start_line_index + scroll_down;
-            }
+                view_start_line_index..view_start_line_index + scroll_down
+            };
             self.render_line_index_range_unchecked(out, true, render_range)?;
             self.rendered_view_start_line_index = self.view_start_line_index;
         }

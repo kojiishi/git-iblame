@@ -35,3 +35,7 @@ jobs:
       - name: Check style
         run: cargo fmt --all --check
         if: contains(matrix.os, 'ubuntu')
+
+      - name: Check clippy
+        run: cargo clippy --all-targets --all-features -- -D warnings
+        if: contains(matrix.os, 'ubuntu')
