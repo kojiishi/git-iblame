@@ -1,10 +1,14 @@
-use std::{io::stdout, path::Path};
+use std::{
+    io::stdout,
+    path::{Path, PathBuf},
+};
 
 use crossterm::{clipboard::CopyToClipboard, cursor, execute, style, terminal};
 use git2::Oid;
 
 use crate::*;
 
+#[derive(Debug, Default)]
 /// The `git-iblame` command line interface.
 /// # Examples
 /// ```no_run
@@ -13,26 +17,24 @@ use crate::*;
 /// # use std::path::PathBuf;
 /// fn main() -> anyhow::Result<()> {
 ///   let path = PathBuf::from("path/to/file");
-///   let mut cli: Cli = Cli::new(&path)?;
+///   let mut cli: Cli = Cli::new(&path);
 ///   cli.run()
 /// }
 /// ```
 pub struct Cli {
-    renderer: BlameRenderer,
+    path: PathBuf,
 }
 
 impl Cli {
-    pub fn new(path: &Path) -> anyhow::Result<Self> {
-        Ok(Self {
-            renderer: BlameRenderer::new(path)?,
-        })
+    pub fn new(path: &Path) -> Self {
+        Self {
+            path: path.to_path_buf(),
+        }
     }
 
     /// Run the `git-iblame` command line interface.
     pub fn run(&mut self) -> anyhow::Result<()> {
-        let mut terminal_raw_mode = TerminalRawModeScope::new(true)?;
-
-        let renderer = &mut self.renderer;
+        let mut renderer = BlameRenderer::new(&self.path)?;
         let size = terminal::size()?;
         renderer.set_view_size((size.0, size.1 - 1));
         renderer.read()?;
@@ -42,6 +44,7 @@ impl Cli {
         let mut out = stdout();
         let key_map = CommandKeyMap::new();
         let mut prompt: CommandPrompt = CommandPrompt::None;
+        let mut terminal_raw_mode = TerminalRawModeScope::new(true)?;
         loop {
             renderer.render(&mut out)?;
             let command_rows = renderer.rendered_rows();

@@ -2,7 +2,7 @@
 set -e
 (
   set -x
-  cargo test --all-targets --all-features
+  cargo test --all-features
 )
 if [[ "$1" == '-n' ]]; then
   set -x
