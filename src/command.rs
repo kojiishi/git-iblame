@@ -76,7 +76,11 @@ impl Command {
         assert!(!event.is_release());
 
         match event.code {
-            event::KeyCode::Char(ch) => buffer.push(ch),
+            event::KeyCode::Char(ch) => {
+                if !buffer.is_empty() || ch == '/' || ch.is_ascii_digit() {
+                    buffer.push(ch);
+                }
+            }
             event::KeyCode::Enter => {
                 if let Ok(number) = buffer.parse() {
                     return Some(Command::LineNumber(number));
