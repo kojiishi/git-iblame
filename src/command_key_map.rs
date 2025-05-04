@@ -61,7 +61,11 @@ impl CommandKeyMap {
         let key_str = key.to_string();
         if modifiers == KeyModifiers::NONE {
             key_str
+        } else if modifiers == KeyModifiers::SHIFT && matches!(key, KeyCode::Char(_)) {
+            // `Shift` is already included in the `key_str` for `Char` keys.
+            key_str
         } else if modifiers == KeyModifiers::CONTROL {
+            // `^` is a well-known prefix for `Control` keys.
             format!("^{}", key_str.to_uppercase())
         } else {
             format!("{}+{}", modifiers, key_str)
@@ -98,6 +102,9 @@ impl CommandKeyMap {
             ((KeyCode::PageDown, KeyModifiers::NONE), Command::NextPage),
             ((KeyCode::Home, KeyModifiers::NONE), Command::FirstLine),
             ((KeyCode::End, KeyModifiers::NONE), Command::LastLine),
+
+            ((KeyCode::Char('N'), KeyModifiers::SHIFT), Command::SearchPrev),
+            ((KeyCode::Char('n'), KeyModifiers::NONE), Command::SearchNext),
         ])
     }
 
@@ -125,19 +132,27 @@ impl CommandKeyMap {
             ("Move to the last line.", Command::LastLine),
             ("Move to the line number.", Command::LineNumber(0)),
             ("Repaint the screen.", Command::Repaint),
+
+            ("#SEARCHING", Command::SearchNext),
+            ("Repeat previous search.", Command::SearchNext),
+            ("Repeat previous search in reverse direction.", Command::SearchPrev),
         ]
     }
 }
 
 #[cfg(test)]
-pub(crate) mod tests {
+mod tests {
     use super::*;
 
     #[test]
     fn key_str_from_key() -> anyhow::Result<()> {
         let target = CommandKeyMap::key_str_from_key;
         assert_eq!(target(KeyCode::Char('a'), KeyModifiers::NONE), "a");
+        assert_eq!(target(KeyCode::Char('A'), KeyModifiers::SHIFT), "A");
         assert_eq!(target(KeyCode::Char('a'), KeyModifiers::CONTROL), "^A");
+
+        assert_eq!(target(KeyCode::Up, KeyModifiers::NONE), "Up");
+        assert_eq!(target(KeyCode::Up, KeyModifiers::SHIFT), "Shift+Up");
         Ok(())
     }
 }

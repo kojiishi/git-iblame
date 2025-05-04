@@ -38,6 +38,7 @@ impl Cli {
         renderer.read()?;
 
         let mut history: Vec<Oid> = vec![];
+        let mut last_search: Option<String> = None;
         let mut out = stdout();
         let key_map = CommandKeyMap::new();
         let mut prompt: CommandPrompt = CommandPrompt::None;
@@ -55,6 +56,15 @@ impl Cli {
                 Command::FirstLine => renderer.move_to_first_line(),
                 Command::LastLine => renderer.move_to_last_line(),
                 Command::LineNumber(number) => renderer.set_current_line_number(number),
+                Command::Search(search) => {
+                    renderer.search(&search, /*reverses*/ false);
+                    last_search = Some(search);
+                }
+                Command::SearchPrev | Command::SearchNext => {
+                    if let Some(search) = last_search.as_ref() {
+                        renderer.search(search, command == Command::SearchPrev);
+                    }
+                }
                 Command::Older => {
                     execute!(
                         out,
@@ -108,6 +118,7 @@ impl Cli {
                     renderer.invalidate_render();
                     let mut terminal_raw_mode = TerminalRawModeScope::new(false)?;
                     key_map.print_help();
+                    println!();
                     terminal_raw_mode.reset();
                     Command::wait_for_any_key("Press any key to continue...")?;
                 }
