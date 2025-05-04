@@ -15,6 +15,9 @@ pub enum Command {
     Older,
     Newer,
     LineNumber(usize),
+    Search(String),
+    SearchPrev,
+    SearchNext,
     Copy,
     ShowCommit,
     ShowDiff,
@@ -79,6 +82,8 @@ impl Command {
                 cursor::MoveTo(0, row),
                 style::Print(":".to_string())
             )?;
+        } else if buffer.starts_with('/') {
+            queue!(out, style::Print(buffer))?;
         } else {
             queue!(out, style::Print(format!(":{buffer}")))?;
         }
@@ -118,6 +123,9 @@ impl Command {
             event::KeyCode::Enter => {
                 if let Ok(number) = buffer.parse() {
                     return Some(Command::LineNumber(number));
+                }
+                if let Some(search) = buffer.strip_prefix('/') {
+                    return Some(Command::Search(search.to_string()));
                 }
             }
             event::KeyCode::Backspace => {

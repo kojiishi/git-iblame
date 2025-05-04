@@ -1,6 +1,7 @@
 use std::{
     cmp,
     collections::HashMap,
+    ops::Range,
     path::{Path, PathBuf},
     rc::Rc,
     time::Instant,
@@ -96,6 +97,64 @@ impl BlameContent {
         self.line_index_from_number(diff_part.line_number.end.saturating_sub(1))
     }
 
+    pub fn search(&self, search: &str, reverse: bool) -> Option<usize> {
+        let search = search.to_lowercase();
+        let mut start_line_index = self.current_line_index();
+        self.search_ranges(
+            &search,
+            reverse,
+            if reverse {
+                [0..start_line_index, start_line_index..self.lines.len()]
+            } else {
+                start_line_index += 1;
+                [start_line_index..self.lines.len(), 0..start_line_index]
+            },
+        )
+    }
+
+    fn search_ranges(
+        &self,
+        search: &str,
+        reverse: bool,
+        line_index_ranges: [Range<usize>; 2],
+    ) -> Option<usize> {
+        for line_index_range in line_index_ranges {
+            if let Some(line_index) = self.search_range(search, reverse, line_index_range.clone()) {
+                return Some(line_index);
+            }
+        }
+        None
+    }
+
+    fn search_range(
+        &self,
+        search: &str,
+        reverse: bool,
+        line_index_range: Range<usize>,
+    ) -> Option<usize> {
+        let start_line_index = line_index_range.start;
+        let lines = self.lines[line_index_range].iter().enumerate();
+        let result = if reverse {
+            self.search_lines_enumerate(search, lines.rev())
+        } else {
+            self.search_lines_enumerate(search, lines)
+        };
+        result.map(|i| start_line_index + i)
+    }
+
+    fn search_lines_enumerate<'a>(
+        &self,
+        search: &str,
+        lines: impl Iterator<Item = (usize, &'a BlameLine)>,
+    ) -> Option<usize> {
+        for (i, line) in lines {
+            if line.line.to_lowercase().contains(search) {
+                return Some(i);
+            }
+        }
+        None
+    }
+
     pub fn read(&mut self, git: &GitTools) -> anyhow::Result<()> {
         let content = git.content_as_string(self.commit_id, &self.path)?;
         self.read_string(&content);
@@ -189,6 +248,29 @@ impl BlameContent {
             start_time.elapsed(),
             start_iterate_time.elapsed()
         );
+        Ok(())
+    }
+}
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn search() -> anyhow::Result<()> {
+        let mut content = BlameContent::new(Oid::zero(), Path::new("a"));
+        content.read_lines(((0..10).chain(0..10)).map(|i| i.to_string()));
+        let mut test = |start_index: usize, search: &str| -> (Option<usize>, Option<usize>) {
+            content.set_current_line_index(start_index);
+            (content.search(search, false), content.search(search, true))
+        };
+
+        assert_eq!(test(0, "X"), (None, None));
+
+        assert_eq!(test(0, "5"), (Some(5), Some(15)));
+        assert_eq!(test(5, "5"), (Some(15), Some(15)));
+        assert_eq!(test(10, "5"), (Some(15), Some(5)));
+        assert_eq!(test(15, "5"), (Some(5), Some(5)));
+        assert_eq!(test(18, "5"), (Some(5), Some(15)));
         Ok(())
     }
 }

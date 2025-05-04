@@ -8,7 +8,7 @@ use crate::*;
 #[derive(Debug, Default)]
 pub struct BlameLine {
     line_number: usize,
-    line: String,
+    pub line: String,
     pub diff_part: Rc<DiffPart>,
 }
 

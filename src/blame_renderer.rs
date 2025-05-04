@@ -134,6 +134,12 @@ impl BlameRenderer {
         self.set_current_line_index(last_index + 1);
     }
 
+    pub fn search(&mut self, search: &str, reverse: bool) {
+        if let Some(line_index) = self.content.search(search, reverse) {
+            self.set_current_line_index(line_index);
+        }
+    }
+
     fn scroll_current_line_into_view(&mut self) {
         // Content may became smaller. Ensure all view rows are filled.
         let view_rows = self.view_rows() as usize;
@@ -357,8 +363,9 @@ impl BlameRenderer {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use crate::git_tools::tests::TempRepository;
+
+    use super::*;
 
     #[test]
     fn scroll_current_line_into_view() -> anyhow::Result<()> {
