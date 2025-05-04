@@ -36,6 +36,7 @@ impl CommandKeyMap {
     }
 
     fn key_str_from_command(&self) -> HashMap<Command, String> {
+        // Create a reversed map from `Command` to `KeyCode`.
         let mut keys_from_command: HashMap<Command, Vec<(KeyCode, KeyModifiers)>> = HashMap::new();
         for (key, command) in self.map.iter() {
             keys_from_command
@@ -44,17 +45,28 @@ impl CommandKeyMap {
                 .push(*key);
         }
 
-        let key_str_from_command: HashMap<Command, String> = keys_from_command
+        keys_from_command
+            .into_iter()
+            .map(|(command, mut keys)| (command, Self::key_str_from_keys(&mut keys)))
+            .collect()
+    }
+
+    fn key_str_from_keys(keys: &mut [(KeyCode, KeyModifiers)]) -> String {
+        // Sort the keys for each command. `KeyCode::Char` comes first. Then by
+        // `KeyModifiers`, and then by the key name.
+        keys.sort_by_key(|(key, modifiers)| {
+            (
+                !matches!(key, KeyCode::Char(_)),
+                modifiers.bits(),
+                key.to_string(),
+            )
+        });
+
+        let key_strings: Vec<String> = keys
             .iter()
-            .map(|(command, keys)| {
-                let key_strings: Vec<String> = keys
-                    .iter()
-                    .map(|(key, modifiers)| Self::key_str_from_key(*key, *modifiers))
-                    .collect();
-                (command.clone(), key_strings.join(", "))
-            })
+            .map(|(key, modifiers)| Self::key_str_from_key(*key, *modifiers))
             .collect();
-        key_str_from_command
+        key_strings.join(", ")
     }
 
     fn key_str_from_key(key: KeyCode, modifiers: KeyModifiers) -> String {
@@ -165,6 +177,20 @@ mod tests {
             let present = map.insert(*key, command.clone());
             assert!(present.is_none(), "Duplicate key found: {key:?}");
         }
+    }
+
+    #[test]
+    fn key_str_from_keys() {
+        assert_eq!(
+            CommandKeyMap::key_str_from_keys(&mut [
+                (KeyCode::Up, KeyModifiers::SHIFT),
+                (KeyCode::Up, KeyModifiers::NONE),
+                (KeyCode::Char('a'), KeyModifiers::CONTROL),
+                (KeyCode::Char('A'), KeyModifiers::SHIFT),
+                (KeyCode::Char('a'), KeyModifiers::NONE),
+            ]),
+            "a, A, ^A, Up, Shift+Up"
+        );
     }
 
     #[test]
