@@ -65,8 +65,9 @@ Major commands are:
 * **h**: Show the help.
 * **q**: Quit the program.
 * **s**: Show the commit at the current line.
-* **d**: Show the current file of the commit at the current line.
+* **d** or **Ctrl+Enter**: Show the current file of the commit at the current line.
 * **c**: Copy the hash of the current line commit to the clipboard.
-* **Enter**: Traverse to the parent commit of the commit at the current line.
-* **Backspace**: Undo the last **Enter** key.
+* **Enter** or **Right**: Traverse to the parent commit of the commit at the current line.
+* **Backspace** or **Left**: Undo the last traverse;
+  i.e., traverse back to the last newer tree.
 * **Up**/**Down**: Move the current line to the previous/next commit.
