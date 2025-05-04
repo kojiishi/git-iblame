@@ -1,6 +1,7 @@
 use std::{
     io::stdout,
     path::{Path, PathBuf},
+    time::Duration,
 };
 
 use crossterm::{clipboard::CopyToClipboard, cursor, execute, style, terminal};
@@ -34,10 +35,12 @@ impl Cli {
 
     /// Run the `git-iblame` command line interface.
     pub fn run(&mut self) -> anyhow::Result<()> {
-        let mut renderer = BlameRenderer::new(&self.path)?;
+        let mut history = blame::FileHistory::new(&self.path);
+        history.read_start()?;
+
+        let mut renderer = BlameRenderer::new(history)?;
         let size = terminal::size()?;
         renderer.set_view_size((size.0, size.1 - 1));
-        renderer.read()?;
 
         let mut history: Vec<Oid> = vec![];
         let mut last_search: Option<String> = None;
@@ -49,11 +52,22 @@ impl Cli {
             renderer.render(&mut out)?;
             let command_rows = renderer.rendered_rows();
 
-            let command = Command::read(command_rows, &key_map, &prompt)?;
+            let command = Command::read(
+                command_rows,
+                &key_map,
+                &prompt,
+                if renderer.history().is_reading() {
+                    Duration::from_millis(1000)
+                } else {
+                    Duration::ZERO
+                },
+            )?;
             prompt = CommandPrompt::None;
             match command {
-                Command::PrevDiff => renderer.move_to_prev_diff(),
-                Command::NextDiff => renderer.move_to_next_diff(),
+                Command::PrevLine => renderer.move_to_prev_line_by(1),
+                Command::NextLine => renderer.move_to_next_line_by(1),
+                // Command::PrevDiff => renderer.move_to_prev_diff(),
+                // Command::NextDiff => renderer.move_to_next_diff(),
                 Command::PrevPage => renderer.move_to_prev_page(),
                 Command::NextPage => renderer.move_to_next_page(),
                 Command::FirstLine => renderer.move_to_first_line(),
@@ -96,15 +110,15 @@ impl Cli {
                     }
                 }
                 Command::Copy => {
-                    execute!(
-                        out,
-                        CopyToClipboard::to_clipboard_from(
-                            renderer.current_line_commit_id().to_string()
-                        )
-                    )?;
-                    prompt = CommandPrompt::Message {
-                        message: "Copied to clipboard".to_string(),
-                    };
+                    if let Ok(commit_id) = renderer.current_line_commit_id() {
+                        execute!(
+                            out,
+                            CopyToClipboard::to_clipboard_from(commit_id.to_string())
+                        )?;
+                        prompt = CommandPrompt::Message {
+                            message: "Copied to clipboard".to_string(),
+                        };
+                    }
                 }
                 Command::ShowCommit | Command::ShowDiff => {
                     let mut terminal_raw_mode = TerminalRawModeScope::new(false)?;
@@ -125,6 +139,7 @@ impl Cli {
                     terminal_raw_mode.reset()?;
                     Command::wait_for_any_key("Press any key to continue...")?;
                 }
+                Command::Timeout => renderer.read_poll()?,
                 Command::Repaint => renderer.invalidate_render(),
                 Command::Resize(columns, rows) => renderer.set_view_size((columns, rows - 1)),
                 Command::Quit => break,

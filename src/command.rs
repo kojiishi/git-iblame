@@ -1,4 +1,7 @@
-use std::io::{Write, stdout};
+use std::{
+    io::{Write, stdout},
+    time::Duration,
+};
 
 use crossterm::{event, queue, style};
 
@@ -6,8 +9,8 @@ use crate::{CommandKeyMap, CommandPrompt};
 
 #[derive(Clone, Debug, Hash, Eq, PartialEq)]
 pub enum Command {
-    PrevDiff,
-    NextDiff,
+    PrevLine,
+    NextLine,
     PrevPage,
     NextPage,
     FirstLine,
@@ -25,6 +28,7 @@ pub enum Command {
     Resize(u16, u16),
     Help,
     Quit,
+    Timeout,
 }
 
 impl Command {
@@ -32,10 +36,14 @@ impl Command {
         row: u16,
         key_map: &CommandKeyMap,
         prompt: &CommandPrompt,
+        timeout: Duration,
     ) -> anyhow::Result<Command> {
         let mut buffer = String::new();
         loop {
             prompt.show(row, &buffer)?;
+            if !timeout.is_zero() && !event::poll(timeout)? {
+                return Ok(Command::Timeout);
+            }
             match event::read()? {
                 event::Event::Key(event) => {
                     if let Some(command) = Self::handle_key(key_map, event, &mut buffer) {

@@ -1,52 +1,51 @@
-use std::{collections::HashMap, io::Write, ops::Range, path::Path, rc::Rc};
+use std::{io::Write, ops::Range, path::Path};
 
 use crate::*;
 use anyhow::bail;
 use crossterm::{cursor, queue, terminal};
 use git2::Oid;
+use log::*;
 
 pub struct BlameRenderer {
-    git: GitTools,
-    content: Box<BlameContent>,
+    history: blame::FileHistory,
+    content: blame::FileContent,
     view_size: (u16, u16),
     rendered_rows: u16,
     rendered_current_line_index: usize,
     rendered_view_start_line_index: usize,
     view_start_line_index: usize,
-    cache: HashMap<Oid, Box<BlameContent>>,
 }
 
 impl BlameRenderer {
-    pub fn new(path: &Path) -> anyhow::Result<Self> {
-        let git = GitTools::from_path(path)?;
-
-        let mut relative_path = path.canonicalize()?;
-        relative_path = relative_path.strip_prefix(git.root_path())?.to_path_buf();
-
+    pub fn new(mut history: blame::FileHistory) -> anyhow::Result<Self> {
+        let content = history.content(git2::Oid::zero())?;
         Ok(Self {
-            git,
-            content: Box::new(BlameContent::new(Oid::zero(), &relative_path)),
-            view_size: terminal::size()?,
+            history,
+            content,
+            view_size: (0, 0),
             rendered_rows: 0,
             rendered_current_line_index: 0,
             rendered_view_start_line_index: 0,
             view_start_line_index: 0,
-            cache: HashMap::new(),
         })
     }
 
     #[cfg(test)]
-    pub fn from_git_tools(git: GitTools, path: &Path, view_size: (u16, u16)) -> Self {
-        Self {
-            git,
-            content: Box::new(BlameContent::new(Oid::zero(), path)),
-            view_size,
-            rendered_rows: 0,
-            rendered_current_line_index: 0,
-            rendered_view_start_line_index: 0,
-            view_start_line_index: 0,
-            cache: HashMap::new(),
-        }
+    pub fn new_for_test() -> anyhow::Result<Self> {
+        let history = blame::FileHistory::new_for_test();
+        Self::new(history)
+    }
+
+    pub fn history(&self) -> &blame::FileHistory {
+        &self.history
+    }
+
+    pub fn history_mut(&mut self) -> &mut blame::FileHistory {
+        &mut self.history
+    }
+
+    fn git(&self) -> &GitTools {
+        self.history.git()
     }
 
     pub fn view_rows(&self) -> u16 {
@@ -78,16 +77,18 @@ impl BlameRenderer {
         self.content.current_line_index()
     }
 
-    fn current_line_number(&self) -> usize {
-        self.content.current_line_number()
-    }
-
-    fn current_line(&self) -> &BlameLine {
+    fn current_line(&self) -> &blame::Line {
         self.content.current_line()
     }
 
-    pub fn current_line_commit_id(&self) -> Oid {
-        self.current_line().commit_id()
+    fn current_line_number(&self) -> usize {
+        self.content.current_line().line_number()
+    }
+
+    pub fn current_line_commit_id(&self) -> anyhow::Result<git2::Oid> {
+        self.current_line()
+            .commit_id()
+            .ok_or(anyhow::anyhow!("This line doesn't have a commit"))
     }
 
     fn set_current_line_index(&mut self, line_index: usize) {
@@ -96,8 +97,8 @@ impl BlameRenderer {
     }
 
     pub fn set_current_line_number(&mut self, line_number: usize) {
-        self.content.set_current_line_number(line_number);
-        self.scroll_current_line_into_view();
+        let line_index = self.content.line_index_from_number(line_number);
+        self.set_current_line_index(line_index);
     }
 
     pub fn move_to_first_line(&mut self) {
@@ -105,33 +106,25 @@ impl BlameRenderer {
     }
 
     pub fn move_to_last_line(&mut self) {
-        self.set_current_line_index(self.content.lines_len().saturating_sub(1));
+        self.set_current_line_index(usize::MAX);
+    }
+
+    pub fn move_to_prev_line_by(&mut self, by: usize) {
+        self.set_current_line_index(self.current_line_index().saturating_sub(by));
+    }
+
+    pub fn move_to_next_line_by(&mut self, by: usize) {
+        self.set_current_line_index(self.current_line_index() + by);
     }
 
     pub fn move_to_prev_page(&mut self) {
         let page_size = (self.view_rows() - 1) as usize;
-        self.set_current_line_index(self.current_line_index().saturating_sub(page_size));
+        self.move_to_prev_line_by(page_size);
     }
 
     pub fn move_to_next_page(&mut self) {
         let page_size = (self.view_rows() - 1) as usize;
-        self.set_current_line_index(self.current_line_index() + page_size);
-    }
-
-    pub fn move_to_prev_diff(&mut self) {
-        let current_index = self.current_line_index();
-        let mut first_index = self.content.first_line_index_of_diff(current_index);
-        if first_index > 0 && first_index == current_index {
-            first_index = self.content.first_line_index_of_diff(first_index - 1);
-        }
-        self.set_current_line_index(first_index);
-    }
-
-    pub fn move_to_next_diff(&mut self) {
-        let last_index = self
-            .content
-            .last_line_index_of_diff(self.current_line_index());
-        self.set_current_line_index(last_index + 1);
+        self.move_to_next_line_by(page_size);
     }
 
     pub fn search(&mut self, search: &str, reverse: bool) {
@@ -165,25 +158,26 @@ impl BlameRenderer {
         }
     }
 
+    pub fn commit_id(&self) -> Oid {
+        self.content.commit_id()
+    }
+
     pub fn path(&self) -> &Path {
         self.content.path()
     }
 
-    pub fn read(&mut self) -> anyhow::Result<()> {
-        self.content.read(&self.git)?;
-        self.invalidate_render();
-        self.scroll_current_line_into_view();
-        Ok(())
-    }
-
-    fn swap_content(&mut self, content: &mut Box<BlameContent>) {
+    fn swap_content(&mut self, content: &mut blame::FileContent) {
         std::mem::swap(&mut self.content, content);
         self.invalidate_render();
         self.scroll_current_line_into_view();
     }
 
-    pub fn commit_id(&self) -> Oid {
-        self.content.commit_id()
+    pub fn read_poll(&mut self) -> anyhow::Result<()> {
+        if self.history_mut().read_poll()? {
+            self.content.reapply(&self.history)?;
+            self.invalidate_render();
+        }
+        Ok(())
     }
 
     pub fn set_commit_id(&mut self, commit_id: Oid) -> anyhow::Result<()> {
@@ -193,49 +187,35 @@ impl BlameRenderer {
     fn set_commit_id_core(
         &mut self,
         commit_id: Oid,
-        path: Option<&Path>,
-        line_index: Option<usize>,
+        _path: Option<&Path>,
+        line_number: Option<usize>,
     ) -> anyhow::Result<()> {
-        let mut content = if let Some(content) = self.cache.remove(&commit_id) {
-            content
-        } else {
-            let mut content = Box::new(BlameContent::new(
-                commit_id,
-                path.unwrap_or_else(|| self.content.path()),
-            ));
-            content.read(&self.git)?;
-            content
-        };
-        if let Some(line_index) = line_index {
-            content.set_current_line_index(line_index);
+        let mut content = self.history_mut().content(commit_id)?;
+        if let Some(line_number) = line_number {
+            content.set_current_line_number(line_number);
         }
         self.swap_content(&mut content);
-        if content.lines_len() > 0 {
-            self.cache.insert(content.commit_id(), content);
-        }
+        // TODO: Put back to cache.
         Ok(())
     }
 
     pub fn set_commit_id_to_older_than_current_line(&mut self) -> anyhow::Result<()> {
-        let diff_part = Rc::clone(&self.current_line().diff_part);
-        let commit_id = self.git.older_commit_id(diff_part.commit_id())?;
-        if commit_id.is_none() {
-            bail!("No commits before {}", diff_part.commit_id());
+        let commit_id = self.current_line_commit_id()?;
+        let commit = self.history.commit_diff_from_commit_id(&commit_id).unwrap();
+        let parent_commit_index = commit.index() + 1;
+        if parent_commit_index >= self.history.commit_diffs().len() {
+            bail!("No commits before {commit_id}");
         }
-        let commit_id = commit_id.unwrap();
-
-        let mut line_number = self.current_line_number();
-        assert!(line_number >= diff_part.line_number.start);
-        line_number = line_number - diff_part.line_number.start + diff_part.orig_start_line_number;
-        let line_index = self.content.line_index_from_number(line_number);
-
-        let path = diff_part.orig_path.as_deref();
-        self.set_commit_id_core(commit_id, path, Some(line_index))
+        let parent_commit = &self.history.commit_diffs()[parent_commit_index];
+        let line_number = self.current_line_number();
+        let mapped_line_number = commit.old_line_number(line_number);
+        debug!("older: line number {line_number}=>{mapped_line_number}");
+        self.set_commit_id_core(parent_commit.commit_id(), None, Some(mapped_line_number))
     }
 
     pub fn show_current_line_commit(&mut self, current_file_only: bool) -> anyhow::Result<()> {
-        let commit_id = self.current_line_commit_id();
-        self.git.show(
+        let commit_id = self.current_line_commit_id()?;
+        self.git().show(
             commit_id,
             if current_file_only {
                 Some(self.content.path())
@@ -345,7 +325,7 @@ impl BlameRenderer {
         lines: Iter,
     ) -> anyhow::Result<u16>
     where
-        Iter: Iterator<Item = &'a BlameLine>,
+        Iter: Iterator<Item = &'a blame::Line>,
     {
         let mut row = start_row;
         let current_line_number = self.current_line_number();
@@ -354,7 +334,7 @@ impl BlameRenderer {
             if should_clear_lines {
                 queue!(out, terminal::Clear(terminal::ClearType::CurrentLine))?;
             }
-            line.render(out, current_line_number)?;
+            line.render(out, current_line_number, self.history())?;
             row += 1;
         }
         Ok(row)
@@ -363,14 +343,12 @@ impl BlameRenderer {
 
 #[cfg(test)]
 mod tests {
-    use crate::git_tools::tests::TempRepository;
 
     use super::*;
 
     #[test]
     fn scroll_current_line_into_view() -> anyhow::Result<()> {
-        let git = TempRepository::new()?;
-        let mut renderer = BlameRenderer::from_git_tools(git.git, Path::new("a"), (10, 10));
+        let mut renderer = BlameRenderer::new_for_test()?;
 
         // No adjustment needed.
         assert_eq!(adjust_start_line_index(&mut renderer, 0, 30, 0, 20), 0);
