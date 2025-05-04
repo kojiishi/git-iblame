@@ -184,6 +184,7 @@ impl BlameContent {
         let start_time = Instant::now();
 
         let mut options = BlameOptions::new();
+        options.ignore_whitespace(true);
         if !self.commit_id.is_zero() {
             options.newest_commit(self.commit_id);
         }
