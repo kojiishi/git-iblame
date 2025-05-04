@@ -89,10 +89,13 @@ impl CommandKeyMap {
 
             ((KeyCode::Char('c'), KeyModifiers::NONE), Command::Copy),
             ((KeyCode::Char('d'), KeyModifiers::NONE), Command::ShowDiff),
+            ((KeyCode::Enter, KeyModifiers::CONTROL), Command::ShowDiff),
             ((KeyCode::Char('s'), KeyModifiers::NONE), Command::ShowCommit),
 
             ((KeyCode::Enter, KeyModifiers::NONE), Command::Older),
+            ((KeyCode::Right, KeyModifiers::NONE), Command::Older),
             ((KeyCode::Backspace, KeyModifiers::NONE), Command::Newer),
+            ((KeyCode::Left, KeyModifiers::NONE), Command::Newer),
 
             // `vi`, `emacs`, or `less`-like key bindings.
             ((KeyCode::Char('b'), KeyModifiers::NONE), Command::PrevPage),
