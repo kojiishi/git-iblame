@@ -109,7 +109,7 @@ impl Cli {
                 Command::ShowCommit | Command::ShowDiff => {
                     let mut terminal_raw_mode = TerminalRawModeScope::new(false)?;
                     renderer.show_current_line_commit(command == Command::ShowDiff)?;
-                    terminal_raw_mode.reset();
+                    terminal_raw_mode.reset()?;
                     Command::wait_for_any_key("Press any key to continue...")?;
                 }
                 Command::Help => {
@@ -122,7 +122,7 @@ impl Cli {
                     let mut terminal_raw_mode = TerminalRawModeScope::new(false)?;
                     key_map.print_help();
                     println!();
-                    terminal_raw_mode.reset();
+                    terminal_raw_mode.reset()?;
                     Command::wait_for_any_key("Press any key to continue...")?;
                 }
                 Command::Repaint => renderer.invalidate_render(),
@@ -131,7 +131,7 @@ impl Cli {
             }
         }
 
-        terminal_raw_mode.reset();
+        terminal_raw_mode.reset()?;
         Ok(())
     }
 }
