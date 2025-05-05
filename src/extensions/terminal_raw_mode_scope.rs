@@ -19,7 +19,8 @@ use log::*;
 /// let mut terminal_raw_mode = TerminalRawModeScope::new(true)?;
 /// // Do the work.
 /// // If it returns early, the terminal raw mode will be reset automatically.
-/// terminal_raw_mode.reset()?;
+/// terminal_raw_mode.reset()?
+/// ;
 /// # Ok(())
 /// # }
 /// ```

@@ -1,6 +1,6 @@
 use std::{env, path::PathBuf};
 
-use git_iblame::Cli;
+use git_iblame::*;
 
 fn main() -> anyhow::Result<()> {
     env_logger::init();

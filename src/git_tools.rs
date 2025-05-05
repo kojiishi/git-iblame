@@ -10,27 +10,23 @@ pub struct GitTools {
 
 impl GitTools {
     /// Construct from the `Path` to a file in the repository.
-    pub fn from_path(path: &Path) -> anyhow::Result<Self> {
+    pub fn from_file_path(path: &Path) -> anyhow::Result<Self> {
         let repository = Repository::open_ext(
             path,
             RepositoryOpenFlags::empty(),
             &[] as &[&std::ffi::OsStr],
         )?;
-
-        let git_path = repository.path().canonicalize()?;
-        let root_path = git_path.parent().unwrap();
-
-        Ok(Self {
-            repository,
-            root_path: root_path.to_path_buf(),
-        })
+        Self::from_repository(repository)
     }
 
-    #[cfg(test)]
+    pub fn from_repository_path(repository_path: &Path) -> anyhow::Result<Self> {
+        let repository = Repository::open(repository_path)?;
+        Self::from_repository(repository)
+    }
+
     fn from_repository(repository: Repository) -> anyhow::Result<Self> {
         let git_path = repository.path().canonicalize()?;
         let root_path = git_path.parent().unwrap();
-
         Ok(Self {
             repository,
             root_path: root_path.to_path_buf(),
@@ -45,6 +41,30 @@ impl GitTools {
     /// Get the canonicalized root directory.
     pub fn root_path(&self) -> &Path {
         &self.root_path
+    }
+
+    #[cfg(target_os = "windows")]
+    pub fn to_posix_path(path: &Path) -> PathBuf {
+        assert!(path.is_relative());
+        let path_str = path.to_string_lossy().replace('\\', "/");
+        PathBuf::from(path_str)
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    pub fn to_posix_path(path: &Path) -> PathBuf {
+        path.to_path_buf()
+    }
+
+    pub fn path_in_repository(&self, path: &Path) -> anyhow::Result<PathBuf> {
+        let path = path.canonicalize()?;
+        let path = path.strip_prefix(self.root_path())?;
+        Ok(Self::to_posix_path(path))
+    }
+
+    pub fn head_commit_id(&self) -> anyhow::Result<Oid> {
+        let head = self.repository.head()?;
+        let commit = head.peel_to_commit()?;
+        Ok(commit.id())
     }
 
     /// Get the content of a `path` at the tree of the `commit_id` as a string.
