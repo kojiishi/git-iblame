@@ -203,10 +203,10 @@ impl BlameRenderer {
         let commit_id = self.current_line_commit_id()?;
         let commit = self.history.commit_diff_from_commit_id(&commit_id).unwrap();
         let parent_commit_index = commit.index() + 1;
-        if parent_commit_index >= self.history.commit_diffs().len() {
+        if parent_commit_index >= self.history.file_diffs().len() {
             bail!("No commits before {commit_id}");
         }
-        let parent_commit = &self.history.commit_diffs()[parent_commit_index];
+        let parent_commit = &self.history.file_diffs()[parent_commit_index];
         let line_number = self.current_line_number();
         let mapped_line_number = commit.old_line_number(line_number);
         debug!("older: line number {line_number}=>{mapped_line_number}");

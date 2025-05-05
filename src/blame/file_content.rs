@@ -8,7 +8,7 @@ use log::*;
 
 use crate::GitTools;
 
-use super::{DiffPart, FileDiffs, FileHistory, Line};
+use super::{DiffPart, FileDiff, FileHistory, Line};
 
 pub struct FileContent {
     commit_id: git2::Oid,
@@ -174,14 +174,14 @@ impl FileContent {
             let self_commit_index = self_commit_diff.index();
             debug!("reapply <= {self_commit_index} {}", self.commit_id());
             let diffs = history
-                .commit_diffs()
+                .file_diffs()
                 .iter()
                 .skip_while(|commit| commit.index() < self_commit_index);
             self.apply_diffs(diffs)?;
         } else {
             debug!("reapply all");
             assert_eq!(self.commit_id(), history.git().head_commit_id()?);
-            self.apply_diffs(history.commit_diffs().iter())?;
+            self.apply_diffs(history.file_diffs().iter())?;
         }
         self.update_after_apply();
         debug!("reapply done, elapsed: {:?}", start_time.elapsed());
@@ -190,19 +190,19 @@ impl FileContent {
 
     fn apply_diffs<'a, I>(&mut self, commits: I) -> anyhow::Result<()>
     where
-        I: Iterator<Item = &'a FileDiffs>,
+        I: Iterator<Item = &'a FileDiff>,
     {
         for commit in commits {
-            for diff_hunk in commit.diff_hunks() {
-                self.apply_diff(diff_hunk, commit)?;
+            for part in commit.parts() {
+                self.apply_diff_part(part, commit)?;
             }
         }
         Ok(())
     }
 
-    fn apply_diff(&mut self, hunk: &DiffPart, commit: &FileDiffs) -> anyhow::Result<()> {
+    fn apply_diff_part(&mut self, part: &DiffPart, commit: &FileDiff) -> anyhow::Result<()> {
         let commit_id = commit.commit_id();
-        let new_line_numbers = hunk.new.line_numbers();
+        let new_line_numbers = part.new.line_numbers();
         trace!("apply: #{} {new_line_numbers:?}", commit.index());
         if new_line_numbers.is_empty() {
             return Ok(()); // TODO: handle empty hunk
