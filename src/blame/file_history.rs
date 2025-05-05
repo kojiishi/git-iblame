@@ -7,15 +7,15 @@ use std::{
 
 use log::*;
 
-use super::{super::GitTools, CommitIterator, FileContent, FileDiffs};
+use super::{super::GitTools, CommitIterator, FileContent, FileDiff};
 
 pub struct FileHistory {
     path: PathBuf,
     git: Option<GitTools>,
-    commit_diffs: Vec<FileDiffs>,
+    file_diffs: Vec<FileDiff>,
     commit_diff_index_from_commit_id: HashMap<git2::Oid, usize>,
     read_thread: Option<thread::JoinHandle<anyhow::Result<()>>>,
-    rx: Option<mpsc::Receiver<FileDiffs>>,
+    rx: Option<mpsc::Receiver<FileDiff>>,
 }
 
 impl FileHistory {
@@ -23,7 +23,7 @@ impl FileHistory {
         Self {
             path: path.to_path_buf(),
             git: None,
-            commit_diffs: Vec::new(),
+            file_diffs: Vec::new(),
             commit_diff_index_from_commit_id: HashMap::new(),
             read_thread: None,
             rx: None,
@@ -65,14 +65,14 @@ impl FileHistory {
         &self.path
     }
 
-    pub fn commit_diffs(&self) -> &Vec<FileDiffs> {
-        &self.commit_diffs
+    pub fn file_diffs(&self) -> &Vec<FileDiff> {
+        &self.file_diffs
     }
 
-    pub fn commit_diff_from_commit_id(&self, commit_id: &git2::Oid) -> Option<&FileDiffs> {
+    pub fn commit_diff_from_commit_id(&self, commit_id: &git2::Oid) -> Option<&FileDiff> {
         self.commit_diff_index_from_commit_id
             .get(commit_id)
-            .map(|index| &self.commit_diffs[*index])
+            .map(|index| &self.file_diffs[*index])
     }
 
     pub fn is_reading(&self) -> bool {
@@ -84,7 +84,7 @@ impl FileHistory {
         debug!("path: {:?}, repo: {:?}", self.path, self.repository_path());
         let path = self.path.clone();
         let repository_path = self.repository_path().to_path_buf();
-        let (tx, rx) = mpsc::channel::<FileDiffs>();
+        let (tx, rx) = mpsc::channel::<FileDiff>();
         self.rx = Some(rx);
         self.read_thread = Some(thread::spawn(move || {
             Self::read_thread(&path, &repository_path, tx)
@@ -102,14 +102,14 @@ impl FileHistory {
     fn read_thread(
         path: &Path,
         repository_path: &Path,
-        tx: mpsc::Sender<FileDiffs>,
+        tx: mpsc::Sender<FileDiff>,
     ) -> anyhow::Result<()> {
         let mut commits = CommitIterator::new(path, repository_path);
         commits.start()?;
         let mut path = path.to_path_buf();
         for commit_id in &mut commits {
             trace!("Commit ID: {:?}, Path: {:?}", commit_id, path);
-            let mut diff = FileDiffs::new(commit_id);
+            let mut diff = FileDiff::new(commit_id);
             diff.read(&path, repository_path)?;
             if let Some(old_path) = diff.old_path() {
                 if path != old_path {
@@ -133,17 +133,17 @@ impl FileHistory {
         loop {
             match rx.try_recv() {
                 Ok(mut diff) => {
-                    let index = self.commit_diffs.len();
+                    let index = self.file_diffs.len();
                     diff.set_index(index);
                     self.commit_diff_index_from_commit_id
                         .insert(diff.commit_id(), index);
-                    self.commit_diffs.push(diff);
+                    self.file_diffs.push(diff);
                     count += 1;
                 }
                 Err(mpsc::TryRecvError::Empty) => {
                     debug!(
                         "read_poll: {count} items, total {} items, {:?}",
-                        self.commit_diffs.len(),
+                        self.file_diffs.len(),
                         start_time.elapsed()
                     );
                     break;
@@ -151,9 +151,9 @@ impl FileHistory {
                 Err(mpsc::TryRecvError::Disconnected) => {
                     debug!(
                         "read_poll: disconnected, {count} items, total {} items, {:?}, {:#?}",
-                        self.commit_diffs.len(),
+                        self.file_diffs.len(),
                         start_time.elapsed(),
-                        self.commit_diffs
+                        self.file_diffs
                     );
                     self.read_join()?;
                     break;
