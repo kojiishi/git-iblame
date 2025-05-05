@@ -106,7 +106,7 @@ impl FileDiff {
         diff.find_similar(None)?;
 
         let mut old_path: Option<PathBuf> = None;
-        let mut context: DiffReadContext = DiffReadContext::default();
+        let mut context = DiffReadContext::default();
         diff.foreach(
             &mut |delta, _| {
                 let new_path = delta.new_file().path();
@@ -144,30 +144,7 @@ impl FileDiff {
                     line.num_lines(),
                     String::from_utf8(line.content().to_vec())
                 );
-                if context.hunk_new_start.is_none()
-                    || hunk.new_start() != context.hunk_new_start.unwrap()
-                {
-                    context.hunk_new_start = Some(hunk.new_start());
-                    context.flush_part();
-                }
-                match line.origin_value() {
-                    git2::DiffLineType::Context => {
-                        context.flush_part();
-                    }
-                    git2::DiffLineType::Addition => {
-                        assert_eq!(line.num_lines(), 1);
-                        let part = context.ensure_part();
-                        part.new.add_line_raw(line.new_lineno());
-                    }
-                    git2::DiffLineType::Deletion => {
-                        assert_eq!(line.num_lines(), 1);
-                        let part = context.ensure_part();
-                        part.old.add_line_raw(line.old_lineno());
-                    }
-                    _ => {
-                        trace!("origin {:?} skipped", line.origin_value());
-                    }
-                }
+                context.on_line_callback(line.origin_value(), line.old_lineno(), line.new_lineno(), line.num_lines());
                 true
             }),
         )?;
@@ -187,38 +164,78 @@ impl FileDiff {
 #[derive(Debug, Default)]
 struct DiffReadContext {
     parts: Vec<DiffPart>,
-    part: Option<DiffPart>,
-    hunk_new_start: Option<u32>,
+    part: DiffPart,
 }
 
 impl DiffReadContext {
-    pub fn ensure_part(&mut self) -> &mut DiffPart {
-        if self.part.is_none() {
-            self.part = Some(DiffPart::default());
+    pub fn on_line_callback(
+        &mut self,
+        origin: git2::DiffLineType,
+        old_lineno: Option<u32>,
+        new_lineno: Option<u32>,
+        num_lines: u32,
+    ) {
+        match origin {
+            git2::DiffLineType::Context => {
+                assert!(old_lineno.is_some());
+                assert!(new_lineno.is_some());
+                assert_eq!(num_lines, 1);
+                self.flush_part();
+                let old_lineno = old_lineno.unwrap() as usize + 1;
+                let new_lineno = new_lineno.unwrap() as usize + 1;
+                self.part.old.line_numbers = old_lineno..old_lineno;
+                self.part.new.line_numbers = new_lineno..new_lineno;
+            }
+            git2::DiffLineType::Addition => {
+                assert!(old_lineno.is_none());
+                assert!(new_lineno.is_some());
+                assert_eq!(num_lines, 1);
+                self.part.new.add_line(new_lineno.unwrap() as usize);
+            }
+            git2::DiffLineType::Deletion => {
+                assert!(old_lineno.is_some());
+                assert!(new_lineno.is_none());
+                assert_eq!(num_lines, 1);
+                self.part.old.add_line(old_lineno.unwrap() as usize);
+            }
+            _ => {
+                trace!("origin {:?} skipped", origin);
+            }
         }
-        self.part.as_mut().unwrap()
     }
 
     pub fn flush_part(&mut self) {
-        if let Some(part) = self.part.take() {
-            trace!("diff_hunk: {part:?}");
-            self.parts.push(part);
+        if !self.part.is_empty() {
+            trace!("flush_part: {:?}", self.part);
+            self.parts.push(self.part.clone());
+            self.part = DiffPart::default();
+            assert!(self.part.is_empty());
         }
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct DiffPart {
     pub old: DiffLines,
     pub new: DiffLines,
 }
 
-#[derive(Debug, Default)]
+impl DiffPart {
+    pub fn is_empty(&self) -> bool {
+        self.old.is_empty() && self.new.is_empty()
+    }
+}
+
+#[derive(Clone, Debug, Default)]
 pub struct DiffLines {
     pub line_numbers: Range<usize>,
 }
 
 impl DiffLines {
+    pub fn is_empty(&self) -> bool {
+        self.line_numbers.is_empty()
+    }
+
     pub fn start_line_number(&self) -> usize {
         self.line_numbers.start
     }
@@ -227,16 +244,55 @@ impl DiffLines {
         &self.line_numbers
     }
 
-    fn add_line_raw(&mut self, line_number: Option<u32>) {
-        self.add_line(line_number.unwrap_or(0) as usize, 1);
-    }
-
-    pub fn add_line(&mut self, line_number: usize, len: usize) {
+    pub fn add_line(&mut self, line_number: usize) {
         if self.line_numbers.is_empty() {
-            self.line_numbers = line_number..line_number + len;
+            self.line_numbers = line_number..line_number + 1;
         } else {
             assert_eq!(self.line_numbers.end, line_number);
-            self.line_numbers.end += len;
+            self.line_numbers.end += 1;
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn context_add() {
+        let mut context = DiffReadContext::default();
+        context.on_line_callback(git2::DiffLineType::Context, Some(2), Some(2), 1);
+        context.on_line_callback(git2::DiffLineType::Context, Some(3), Some(3), 1);
+        context.on_line_callback(git2::DiffLineType::Context, Some(4), Some(4), 1);
+        context.on_line_callback(git2::DiffLineType::Addition, None, Some(5), 1);
+        context.on_line_callback(git2::DiffLineType::Addition, None, Some(6), 1);
+        context.on_line_callback(git2::DiffLineType::Context, Some(5), Some(7), 1);
+        context.on_line_callback(git2::DiffLineType::Context, Some(6), Some(8), 1);
+        context.on_line_callback(git2::DiffLineType::Addition, None, Some(9), 1);
+        context.on_line_callback(git2::DiffLineType::Context, Some(7), Some(10), 1);
+        context.flush_part();
+        assert_eq!(context.parts.len(), 2);
+        assert_eq!(context.parts[0].old.line_numbers, 5..5);
+        assert_eq!(context.parts[0].new.line_numbers, 5..7);
+        assert_eq!(context.parts[1].old.line_numbers, 7..7);
+        assert_eq!(context.parts[1].new.line_numbers, 9..10);
+    }
+
+    #[test]
+    fn context_delete() {
+        let mut context = DiffReadContext::default();
+        context.on_line_callback(git2::DiffLineType::Context, Some(1), Some(1), 1);
+        context.on_line_callback(git2::DiffLineType::Context, Some(2), Some(2), 1);
+        context.on_line_callback(git2::DiffLineType::Context, Some(3), Some(3), 1);
+        context.on_line_callback(git2::DiffLineType::Deletion, Some(4), None, 1);
+        context.on_line_callback(git2::DiffLineType::Deletion, Some(5), None, 1);
+        context.on_line_callback(git2::DiffLineType::Context, Some(6), Some(8), 1);
+        context.on_line_callback(git2::DiffLineType::Deletion, Some(7), None, 1);
+        context.flush_part();
+        assert_eq!(context.parts.len(), 2);
+        assert_eq!(context.parts[0].old.line_numbers, 4..6);
+        assert_eq!(context.parts[0].new.line_numbers, 4..4);
+        assert_eq!(context.parts[1].old.line_numbers, 7..8);
+        assert_eq!(context.parts[1].new.line_numbers, 9..9);
     }
 }
