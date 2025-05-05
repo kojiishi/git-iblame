@@ -1,11 +1,10 @@
-use std::{
-    ops::Range,
-    path::{Path, PathBuf},
-};
+use std::path::{Path, PathBuf};
 
 use log::*;
 
 use crate::GitTools;
+
+use super::DiffPart;
 
 #[derive(Debug)]
 pub struct FileDiff {
@@ -58,12 +57,12 @@ impl FileDiff {
     }
 
     pub fn old_line_number(&self, line_number: usize) -> usize {
-        for diff_hunk in &self.parts {
-            if diff_hunk.new.line_numbers.contains(&line_number) {
-                debug!("map {line_number} by {diff_hunk:?}");
-                let index_in_hunk = line_number - diff_hunk.new.line_numbers.start;
-                if !diff_hunk.old.line_numbers.is_empty() {
-                    return index_in_hunk + diff_hunk.old.line_numbers.start;
+        for part in &self.parts {
+            if part.new.line_numbers.contains(&line_number) {
+                debug!("map {line_number} by {part:?}");
+                let index_in_hunk = line_number - part.new.line_numbers.start;
+                if !part.old.line_numbers.is_empty() {
+                    return index_in_hunk + part.old.line_numbers.start;
                 }
                 // TODO: What to do? Accumulate diffs up to this point?
             }
@@ -210,46 +209,6 @@ impl DiffReadContext {
             self.parts.push(self.part.clone());
             self.part = DiffPart::default();
             assert!(self.part.is_empty());
-        }
-    }
-}
-
-#[derive(Clone, Debug, Default)]
-pub struct DiffPart {
-    pub old: DiffLines,
-    pub new: DiffLines,
-}
-
-impl DiffPart {
-    pub fn is_empty(&self) -> bool {
-        self.old.is_empty() && self.new.is_empty()
-    }
-}
-
-#[derive(Clone, Debug, Default)]
-pub struct DiffLines {
-    pub line_numbers: Range<usize>,
-}
-
-impl DiffLines {
-    pub fn is_empty(&self) -> bool {
-        self.line_numbers.is_empty()
-    }
-
-    pub fn start_line_number(&self) -> usize {
-        self.line_numbers.start
-    }
-
-    pub fn line_numbers(&self) -> &Range<usize> {
-        &self.line_numbers
-    }
-
-    pub fn add_line(&mut self, line_number: usize) {
-        if self.line_numbers.is_empty() {
-            self.line_numbers = line_number..line_number + 1;
-        } else {
-            assert_eq!(self.line_numbers.end, line_number);
-            self.line_numbers.end += 1;
         }
     }
 }
