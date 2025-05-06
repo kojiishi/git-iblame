@@ -4,8 +4,8 @@ pub use commit_iterator::*;
 mod diff_part;
 pub use diff_part::*;
 
-mod file_diff;
-pub use file_diff::*;
+mod file_commit;
+pub use file_commit::*;
 
 mod file_content;
 pub use file_content::*;

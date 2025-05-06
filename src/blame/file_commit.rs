@@ -7,16 +7,16 @@ use crate::GitTools;
 use super::DiffPart;
 
 #[derive(Debug)]
-pub struct FileDiff {
+pub struct FileCommit {
     commit_id: git2::Oid,
     index: usize,
     time: git2::Time,
     summary: Option<String>,
     old_path: Option<PathBuf>,
-    parts: Vec<DiffPart>,
+    diff_parts: Vec<DiffPart>,
 }
 
-impl FileDiff {
+impl FileCommit {
     pub fn new(commit_id: git2::Oid) -> Self {
         Self {
             commit_id,
@@ -24,7 +24,7 @@ impl FileDiff {
             time: git2::Time::new(0, 0),
             summary: None,
             old_path: None,
-            parts: Vec::new(),
+            diff_parts: Vec::new(),
         }
     }
 
@@ -52,12 +52,12 @@ impl FileDiff {
         self.old_path.as_deref()
     }
 
-    pub fn parts(&self) -> &Vec<DiffPart> {
-        &self.parts
+    pub fn diff_parts(&self) -> &Vec<DiffPart> {
+        &self.diff_parts
     }
 
     pub fn old_line_number(&self, line_number: usize) -> usize {
-        for part in &self.parts {
+        for part in &self.diff_parts {
             if part.new.line_numbers.contains(&line_number) {
                 debug!("map {line_number} by {part:?}");
                 let index_in_hunk = line_number - part.new.line_numbers.start;
@@ -74,7 +74,7 @@ impl FileDiff {
     pub fn read(&mut self, path: &Path, repository_path: &Path) -> anyhow::Result<()> {
         trace!("read diff for commit_id: {:?} {path:?}", self.commit_id);
         assert!(path.is_relative());
-        assert!(self.parts.is_empty());
+        assert!(self.diff_parts.is_empty());
         let start_time = std::time::Instant::now();
         let git = GitTools::from_repository_path(repository_path)?;
         let commit_id = self.commit_id;
@@ -88,7 +88,7 @@ impl FileDiff {
             trace!("no parent");
             let mut diff_hunk = DiffPart::default();
             diff_hunk.new.line_numbers = 1..usize::MAX;
-            self.parts.push(diff_hunk);
+            self.diff_parts.push(diff_hunk);
             return Ok(());
         }
         let parent = parent.unwrap();
@@ -150,8 +150,8 @@ impl FileDiff {
         context.flush_part();
 
         self.old_path = old_path;
-        self.parts = context.parts;
-        DiffPart::validate_ascending_parts(&self.parts).unwrap();
+        self.diff_parts = context.parts;
+        DiffPart::validate_ascending_parts(&self.diff_parts).unwrap();
         trace!(
             "read diff for commit_id: {:?} done, elapsed {:?}: {self:#?}",
             self.commit_id,

@@ -8,7 +8,7 @@ use log::*;
 
 use crate::GitTools;
 
-use super::{DiffPart, FileDiff, FileHistory, Line, LineNumberMap};
+use super::{DiffPart, FileCommit, FileHistory, Line, LineNumberMap};
 
 pub struct FileContent {
     commit_id: git2::Oid,
@@ -192,28 +192,32 @@ impl FileContent {
         for i in 0..commits.len() {
             let commit = &commits[i];
             if i > 0 {
-                let mut adjusted_parts = commit.parts().clone();
+                let mut adjusted_parts = commit.diff_parts().clone();
                 for j in (0..i).rev() {
-                    let parts = &commits[j].parts();
+                    let parts = &commits[j].diff_parts();
                     let map = LineNumberMap::new_new_from_old(parts);
                     map.apply_to_parts(&mut adjusted_parts);
                 }
                 self.apply_diff_parts(&adjusted_parts, commit)?;
             } else {
-                self.apply_diff_parts(commit.parts(), commit)?;
+                self.apply_diff_parts(commit.diff_parts(), commit)?;
             }
         }
         Ok(())
     }
 
-    fn apply_diff_parts(&mut self, parts: &Vec<DiffPart>, commit: &FileDiff) -> anyhow::Result<()> {
+    fn apply_diff_parts(
+        &mut self,
+        parts: &Vec<DiffPart>,
+        commit: &FileCommit,
+    ) -> anyhow::Result<()> {
         for part in parts {
             self.apply_diff_part(part, commit)?;
         }
         Ok(())
     }
 
-    fn apply_diff_part(&mut self, part: &DiffPart, commit: &FileDiff) -> anyhow::Result<()> {
+    fn apply_diff_part(&mut self, part: &DiffPart, commit: &FileCommit) -> anyhow::Result<()> {
         let commit_id = commit.commit_id();
         let new_line_numbers = part.new.line_numbers();
         trace!("apply: #{} {new_line_numbers:?}", commit.index());

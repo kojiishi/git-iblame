@@ -7,15 +7,15 @@ use std::{
 
 use log::*;
 
-use super::{super::GitTools, CommitIterator, FileContent, FileDiff};
+use super::{super::GitTools, CommitIterator, FileCommit, FileContent};
 
 pub struct FileHistory {
     path: PathBuf,
     git: Option<GitTools>,
-    file_diffs: Vec<FileDiff>,
+    file_diffs: Vec<FileCommit>,
     commit_diff_index_from_commit_id: HashMap<git2::Oid, usize>,
     read_thread: Option<thread::JoinHandle<anyhow::Result<()>>>,
-    rx: Option<mpsc::Receiver<FileDiff>>,
+    rx: Option<mpsc::Receiver<FileCommit>>,
 }
 
 impl FileHistory {
@@ -65,11 +65,11 @@ impl FileHistory {
         &self.path
     }
 
-    pub fn file_diffs(&self) -> &Vec<FileDiff> {
+    pub fn file_diffs(&self) -> &Vec<FileCommit> {
         &self.file_diffs
     }
 
-    pub fn commit_diff_from_commit_id(&self, commit_id: &git2::Oid) -> Option<&FileDiff> {
+    pub fn commit_diff_from_commit_id(&self, commit_id: &git2::Oid) -> Option<&FileCommit> {
         self.commit_diff_index_from_commit_id
             .get(commit_id)
             .map(|index| &self.file_diffs[*index])
@@ -84,7 +84,7 @@ impl FileHistory {
         debug!("path: {:?}, repo: {:?}", self.path, self.repository_path());
         let path = self.path.clone();
         let repository_path = self.repository_path().to_path_buf();
-        let (tx, rx) = mpsc::channel::<FileDiff>();
+        let (tx, rx) = mpsc::channel::<FileCommit>();
         self.rx = Some(rx);
         self.read_thread = Some(thread::spawn(move || {
             Self::read_thread(&path, &repository_path, tx)
@@ -102,14 +102,14 @@ impl FileHistory {
     fn read_thread(
         path: &Path,
         repository_path: &Path,
-        tx: mpsc::Sender<FileDiff>,
+        tx: mpsc::Sender<FileCommit>,
     ) -> anyhow::Result<()> {
         let mut commits = CommitIterator::new(path, repository_path);
         commits.start()?;
         let mut path = path.to_path_buf();
         for commit_id in &mut commits {
             trace!("Commit ID: {:?}, Path: {:?}", commit_id, path);
-            let mut diff = FileDiff::new(commit_id);
+            let mut diff = FileCommit::new(commit_id);
             diff.read(&path, repository_path)?;
             if let Some(old_path) = diff.old_path() {
                 if path != old_path {
