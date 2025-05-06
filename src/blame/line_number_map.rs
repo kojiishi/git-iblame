@@ -128,7 +128,7 @@ impl LineNumberMap {
             } else {
                 *value + item.add - item.sub
             };
-            debug!("apply_to_values: {} -> {}", *value, new_value);
+            // trace!("apply_to_values: {} -> {}", *value, new_value);
             assert!(new_value >= last_new_value);
             last_new_value = new_value;
             *value = new_value;

@@ -179,11 +179,11 @@ impl FileHistory {
                 }
                 Err(mpsc::TryRecvError::Disconnected) => {
                     debug!(
-                        "read_poll: disconnected, {count} items, total {} items, {:?}, {:#?}",
+                        "read_poll: disconnected, {count} items, total {} items, {:?}",
                         self.file_commits.len(),
                         start_time.elapsed(),
-                        self.file_commits
                     );
+                    trace!("{:#?}", self.file_commits);
                     self.read_join()?;
                     break;
                 }

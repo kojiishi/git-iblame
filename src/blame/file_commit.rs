@@ -152,10 +152,11 @@ impl FileCommit {
         self.diff_parts = context.parts;
         DiffPart::validate_ascending_parts(&self.diff_parts).unwrap();
         trace!(
-            "read diff for commit_id: {:?} done, elapsed {:?}: {self:#?}",
+            "read diff for commit_id: {:?} done, elapsed {:?}",
             self.commit_id,
             start_time.elapsed()
         );
+        trace!("{self:#?}");
         Ok(())
     }
 }
