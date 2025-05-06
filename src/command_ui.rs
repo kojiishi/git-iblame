@@ -7,24 +7,31 @@ use crossterm::{event, queue, style};
 
 use crate::{Command, CommandKeyMap, CommandPrompt};
 
-pub struct CommandUI {}
+#[derive(Debug, Default)]
+pub struct CommandUI {
+    pub prompt: CommandPrompt,
+    pub buffer: String,
+    pub key_map: CommandKeyMap,
+    pub timeout: Duration,
+}
 
 impl CommandUI {
-    pub fn read(
-        row: u16,
-        key_map: &CommandKeyMap,
-        prompt: &CommandPrompt,
-        timeout: Duration,
-    ) -> anyhow::Result<Command> {
-        let mut buffer = String::new();
+    pub fn new() -> Self {
+        Self {
+            key_map: CommandKeyMap::new(),
+            ..Default::default()
+        }
+    }
+
+    pub fn read(&mut self, row: u16) -> anyhow::Result<Command> {
         loop {
-            prompt.show(row, &buffer)?;
-            if !timeout.is_zero() && !event::poll(timeout)? {
+            self.prompt.show(row, &self.buffer)?;
+            if !self.timeout.is_zero() && !event::poll(self.timeout)? {
                 return Ok(Command::Timeout);
             }
             match event::read()? {
                 event::Event::Key(event) => {
-                    if let Some(command) = Self::handle_key(key_map, event, &mut buffer) {
+                    if let Some(command) = self.handle_key(event) {
                         return Ok(command);
                     }
                 }
@@ -34,51 +41,50 @@ impl CommandUI {
         }
     }
 
-    fn handle_key(
-        key_map: &CommandKeyMap,
-        event: event::KeyEvent,
-        buffer: &mut String,
-    ) -> Option<Command> {
+    fn handle_key(&mut self, event: event::KeyEvent) -> Option<Command> {
         if event.is_release() {
             return None;
         }
 
-        if !buffer.is_empty() {
-            if let Some(command) = Self::handle_buffer_key(event, buffer) {
+        if !self.buffer.is_empty() {
+            if let Some(command) = self.handle_buffer_key(event) {
                 return Some(command);
             }
             return None;
         }
-        if let Some(command) = key_map.get(event.code, event.modifiers) {
+        if let Some(command) = self.key_map.get(event.code, event.modifiers) {
             return Some(command.clone());
         }
-        if let Some(command) = Self::handle_buffer_key(event, buffer) {
+        if let Some(command) = self.handle_buffer_key(event) {
             return Some(command);
         }
         None
     }
 
-    fn handle_buffer_key(event: event::KeyEvent, buffer: &mut String) -> Option<Command> {
+    fn handle_buffer_key(&mut self, event: event::KeyEvent) -> Option<Command> {
         assert!(!event.is_release());
 
         match event.code {
             event::KeyCode::Char(ch) => {
-                if !buffer.is_empty() || ch == '/' || ch.is_ascii_digit() {
-                    buffer.push(ch);
+                if !self.buffer.is_empty() || ch == '/' || ch.is_ascii_digit() {
+                    self.buffer.push(ch);
                 }
             }
             event::KeyCode::Enter => {
-                if let Ok(number) = buffer.parse() {
+                if let Ok(number) = self.buffer.parse() {
+                    self.buffer.clear();
                     return Some(Command::LineNumber(number));
                 }
-                if let Some(search) = buffer.strip_prefix('/') {
-                    return Some(Command::Search(search.to_string()));
+                if let Some(search) = self.buffer.strip_prefix('/') {
+                    let search = search.to_string();
+                    self.buffer.clear();
+                    return Some(Command::Search(search));
                 }
             }
             event::KeyCode::Backspace => {
-                buffer.pop();
+                self.buffer.pop();
             }
-            event::KeyCode::Esc => buffer.clear(),
+            event::KeyCode::Esc => self.buffer.clear(),
             _ => {}
         }
         None

@@ -42,27 +42,22 @@ impl Cli {
         let size = terminal::size()?;
         renderer.set_view_size((size.0, size.1 - 1));
 
+        let mut ui = CommandUI::new();
         let mut history: Vec<Oid> = vec![];
         let mut last_search: Option<String> = None;
         let mut out = stdout();
-        let key_map = CommandKeyMap::new();
-        let mut prompt: CommandPrompt = CommandPrompt::None;
         let mut terminal_raw_mode = TerminalRawModeScope::new(true)?;
         loop {
             renderer.render(&mut out)?;
             let command_rows = renderer.rendered_rows();
 
-            let command = CommandUI::read(
-                command_rows,
-                &key_map,
-                &prompt,
-                if renderer.history().is_reading() {
-                    Duration::from_millis(1000)
-                } else {
-                    Duration::ZERO
-                },
-            )?;
-            prompt = CommandPrompt::None;
+            ui.timeout = if renderer.history().is_reading() {
+                Duration::from_millis(1000)
+            } else {
+                Duration::ZERO
+            };
+            let command = ui.read(command_rows)?;
+            ui.prompt = CommandPrompt::None;
             match command {
                 Command::PrevLine => renderer.move_to_prev_line_by(1),
                 Command::NextLine => renderer.move_to_next_line_by(1),
@@ -92,14 +87,14 @@ impl Cli {
                     let path_before = renderer.path().to_path_buf();
                     let old_commit_id = renderer.commit_id();
                     if let Err(error) = renderer.set_commit_id_to_older_than_current_line() {
-                        prompt = CommandPrompt::Err { error };
+                        ui.prompt = CommandPrompt::Err { error };
                         // Invalidate because the "working" message cleared the screen.
                         renderer.invalidate_render();
                         continue;
                     }
                     history.push(old_commit_id);
                     if path_before != renderer.path() {
-                        prompt = CommandPrompt::Message {
+                        ui.prompt = CommandPrompt::Message {
                             message: format!("Path changed to {}", renderer.path().display()),
                         };
                     }
@@ -115,7 +110,7 @@ impl Cli {
                             out,
                             CopyToClipboard::to_clipboard_from(commit_id.to_string())
                         )?;
-                        prompt = CommandPrompt::Message {
+                        ui.prompt = CommandPrompt::Message {
                             message: "Copied to clipboard".to_string(),
                         };
                     }
@@ -134,7 +129,7 @@ impl Cli {
                     )?;
                     renderer.invalidate_render();
                     let mut terminal_raw_mode = TerminalRawModeScope::new(false)?;
-                    key_map.print_help();
+                    ui.key_map.print_help();
                     println!();
                     terminal_raw_mode.reset()?;
                     CommandUI::wait_for_any_key("Press any key to continue...")?;

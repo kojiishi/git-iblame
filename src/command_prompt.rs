@@ -2,10 +2,16 @@ use std::io::{Write, stdout};
 
 use crossterm::{cursor, queue, style, terminal};
 
+#[derive(Debug, Default)]
 pub enum CommandPrompt {
+    #[default]
     None,
-    Message { message: String },
-    Err { error: anyhow::Error },
+    Message {
+        message: String,
+    },
+    Err {
+        error: anyhow::Error,
+    },
 }
 
 impl CommandPrompt {
