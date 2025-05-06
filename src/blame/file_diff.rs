@@ -151,6 +151,7 @@ impl FileDiff {
 
         self.old_path = old_path;
         self.parts = context.parts;
+        DiffPart::validate_ascending_parts(&self.parts).unwrap();
         trace!(
             "read diff for commit_id: {:?} done, elapsed {:?}: {self:#?}",
             self.commit_id,
@@ -206,6 +207,7 @@ impl DiffReadContext {
     pub fn flush_part(&mut self) {
         if !self.part.is_empty() {
             trace!("flush_part: {:?}", self.part);
+            self.part.validate_ascending().unwrap();
             self.parts.push(self.part.clone());
             self.part = DiffPart::default();
             assert!(self.part.is_empty());
