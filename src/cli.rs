@@ -52,7 +52,7 @@ impl Cli {
             renderer.render(&mut out)?;
             let command_rows = renderer.rendered_rows();
 
-            let command = Command::read(
+            let command = CommandUI::read(
                 command_rows,
                 &key_map,
                 &prompt,
@@ -124,7 +124,7 @@ impl Cli {
                     let mut terminal_raw_mode = TerminalRawModeScope::new(false)?;
                     renderer.show_current_line_commit(command == Command::ShowDiff)?;
                     terminal_raw_mode.reset()?;
-                    Command::wait_for_any_key("Press any key to continue...")?;
+                    CommandUI::wait_for_any_key("Press any key to continue...")?;
                 }
                 Command::Help => {
                     execute!(
@@ -137,7 +137,7 @@ impl Cli {
                     key_map.print_help();
                     println!();
                     terminal_raw_mode.reset()?;
-                    Command::wait_for_any_key("Press any key to continue...")?;
+                    CommandUI::wait_for_any_key("Press any key to continue...")?;
                 }
                 Command::Timeout => renderer.read_poll()?,
                 Command::Repaint => renderer.invalidate_render(),
