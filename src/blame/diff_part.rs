@@ -1,11 +1,14 @@
-use std::ops::Range;
+use std::{
+    fmt::{self},
+    ops::Range,
+};
 
 use anyhow::bail;
 
 #[derive(Clone, Debug, Default)]
 pub struct DiffPart {
-    pub old: DiffLines,
-    pub new: DiffLines,
+    pub old: DiffRange,
+    pub new: DiffRange,
 }
 
 impl DiffPart {
@@ -41,12 +44,18 @@ impl DiffPart {
     }
 }
 
-#[derive(Clone, Debug, Default)]
-pub struct DiffLines {
+#[derive(Clone, Default)]
+pub struct DiffRange {
     pub line_numbers: Range<usize>,
 }
 
-impl DiffLines {
+impl fmt::Debug for DiffRange {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_fmt(format_args!("{:?}", self.line_numbers))
+    }
+}
+
+impl DiffRange {
     pub fn is_empty(&self) -> bool {
         self.line_numbers.is_empty()
     }

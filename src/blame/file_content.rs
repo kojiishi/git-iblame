@@ -8,7 +8,7 @@ use log::*;
 
 use crate::GitTools;
 
-use super::{DiffPart, FileDiff, FileHistory, Line};
+use super::{DiffPart, FileDiff, FileHistory, Line, LineNumberMap};
 
 pub struct FileContent {
     commit_id: git2::Oid,
@@ -170,32 +170,45 @@ impl FileContent {
         for line in self.lines.iter_mut() {
             line.clear_commit_id();
         }
-        if let Some(self_commit_diff) = history.commit_diff_from_commit_id(&self.commit_id()) {
-            let self_commit_index = self_commit_diff.index();
-            debug!("reapply <= {self_commit_index} {}", self.commit_id());
-            let diffs = history
-                .file_diffs()
-                .iter()
-                .skip_while(|commit| commit.index() < self_commit_index);
-            self.apply_diffs(diffs)?;
-        } else {
-            debug!("reapply all");
-            assert_eq!(self.commit_id(), history.git().head_commit_id()?);
-            self.apply_diffs(history.file_diffs().iter())?;
-        }
+        let first_index =
+            if let Some(self_commit_diff) = history.commit_diff_from_commit_id(&self.commit_id()) {
+                let self_commit_index = self_commit_diff.index();
+                debug!("reapply {self_commit_index} {}", self.commit_id());
+                self_commit_index
+            } else {
+                debug!("reapply all");
+                assert_eq!(self.commit_id(), history.git().head_commit_id()?);
+                0
+            };
+        self.apply_diffs(history, first_index)?;
         self.update_after_apply();
         debug!("reapply done, elapsed: {:?}", start_time.elapsed());
         Ok(())
     }
 
-    fn apply_diffs<'a, I>(&mut self, commits: I) -> anyhow::Result<()>
-    where
-        I: Iterator<Item = &'a FileDiff>,
-    {
-        for commit in commits {
-            for part in commit.parts() {
-                self.apply_diff_part(part, commit)?;
+    fn apply_diffs(&mut self, history: &FileHistory, first_index: usize) -> anyhow::Result<()> {
+        let all_commits = history.file_diffs();
+        let commits = &all_commits[first_index..];
+        for i in 0..commits.len() {
+            let commit = &commits[i];
+            if i > 0 {
+                let mut adjusted_parts = commit.parts().clone();
+                for j in (0..i).rev() {
+                    let parts = &commits[j].parts();
+                    let map = LineNumberMap::new_new_from_old(parts);
+                    map.apply_to_parts(&mut adjusted_parts);
+                }
+                self.apply_diff_parts(&adjusted_parts, commit)?;
+            } else {
+                self.apply_diff_parts(commit.parts(), commit)?;
             }
+        }
+        Ok(())
+    }
+
+    fn apply_diff_parts(&mut self, parts: &Vec<DiffPart>, commit: &FileDiff) -> anyhow::Result<()> {
+        for part in parts {
+            self.apply_diff_part(part, commit)?;
         }
         Ok(())
     }

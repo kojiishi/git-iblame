@@ -15,3 +15,6 @@ pub use file_history::*;
 
 mod line;
 pub use line::*;
+
+mod line_number_map;
+pub use line_number_map::*;
