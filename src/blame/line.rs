@@ -94,9 +94,11 @@ impl Line {
                 ),
                 1 => commit
                     .summary()
-                    .as_ref()
                     .map_or(String::new(), |s| format!("  {}", s)),
-                2 => format!("  {}", commit.commit_id()),
+                2 => commit
+                    .author()
+                    .map_or(String::new(), |s| format!("  {}", s)),
+                3 => format!("  {}", commit.commit_id()),
                 _ => String::new(),
             }
         } else {
