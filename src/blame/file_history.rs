@@ -69,6 +69,10 @@ impl FileHistory {
         &self.file_commits
     }
 
+    pub fn file_commit(&self, index: usize) -> &FileCommit {
+        &self.file_commits[index]
+    }
+
     fn commit_index_from_commit_id_opt(&self, commit_id: git2::Oid) -> Option<usize> {
         if commit_id.is_zero() {
             if !self.file_commits.is_empty() {

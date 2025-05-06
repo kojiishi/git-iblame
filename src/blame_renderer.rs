@@ -1,6 +1,6 @@
 use std::{io::Write, ops::Range, path::Path};
 
-use crate::*;
+use crate::{blame::LineNumberMap, *};
 use anyhow::bail;
 use crossterm::{cursor, queue, terminal};
 use git2::Oid;
@@ -201,15 +201,19 @@ impl BlameRenderer {
 
     pub fn set_commit_id_to_older_than_current_line(&mut self) -> anyhow::Result<()> {
         let commit_id = self.current_line_commit_id()?;
-        let commit = self.history.commit_from_commit_id(commit_id)?;
-        let parent_commit_index = commit.index() + 1;
+        let commit_index = self.history.commit_index_from_commit_id(commit_id)?;
+        let parent_commit_index = commit_index + 1;
         if parent_commit_index >= self.history.file_commits().len() {
             bail!("No commits before {commit_id}");
         }
-        let parent_commit = &self.history.file_commits()[parent_commit_index];
+
+        let commit = self.history.file_commit(commit_index);
+        let line_number_map = LineNumberMap::new_old_from_new(commit.diff_parts());
         let line_number = self.current_line_number();
-        let mapped_line_number = commit.old_line_number(line_number);
+        let mapped_line_number = line_number_map.map(line_number);
         debug!("older: line number {line_number}=>{mapped_line_number}");
+
+        let parent_commit = self.history.file_commit(parent_commit_index);
         self.set_commit_id_core(parent_commit.commit_id(), None, Some(mapped_line_number))
     }
 

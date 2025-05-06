@@ -68,21 +68,6 @@ impl FileCommit {
         &self.diff_parts
     }
 
-    pub fn old_line_number(&self, line_number: usize) -> usize {
-        for part in &self.diff_parts {
-            if part.new.line_numbers.contains(&line_number) {
-                debug!("map {line_number} by {part:?}");
-                let index_in_hunk = line_number - part.new.line_numbers.start;
-                if !part.old.line_numbers.is_empty() {
-                    return index_in_hunk + part.old.line_numbers.start;
-                }
-                // TODO: What to do? Accumulate diffs up to this point?
-            }
-        }
-        // TODO: What to do? Accumulate diffs up to this point?
-        line_number
-    }
-
     pub fn read(&mut self, repository_path: &Path) -> anyhow::Result<()> {
         let path = self.path.as_path();
         trace!("read diff for commit_id: {:?} {path:?}", self.commit_id);

@@ -20,17 +20,28 @@ pub struct LineNumberMap {
 impl LineNumberMap {
     /// To map old line numbers to new.
     pub fn new_new_from_old(parts: &Vec<DiffPart>) -> LineNumberMap {
+        Self::new(parts, |part| (&part.old, &part.new))
+    }
+    pub fn new_old_from_new(parts: &Vec<DiffPart>) -> LineNumberMap {
+        Self::new(parts, |part| (&part.new, &part.old))
+    }
+
+    fn new(
+        parts: &Vec<DiffPart>,
+        get_from_to: fn(&DiffPart) -> (&DiffRange, &DiffRange),
+    ) -> LineNumberMap {
         let mut items: Vec<LineNumberMapItem> = Vec::new();
         let mut add = 0;
         let mut sub = 0;
         for part in parts {
             trace!("new_new_from_old: {:?}", part);
-            let old_size = part.old.len();
-            let new_size = part.new.len();
+            let (old, new) = get_from_to(part);
+            let old_size = old.len();
+            let new_size = new.len();
             match new_size.cmp(&old_size) {
                 Ordering::Equal => {}
                 Ordering::Greater => {
-                    let start = part.old.line_numbers.start + old_size;
+                    let start = old.line_numbers.start + old_size;
                     add += new_size - old_size;
                     items.push(LineNumberMapItem {
                         range: start..start,
@@ -40,7 +51,7 @@ impl LineNumberMap {
                     });
                 }
                 Ordering::Less => {
-                    let mut start = part.old.line_numbers.start + new_size;
+                    let mut start = old.line_numbers.start + new_size;
                     items.push(LineNumberMapItem {
                         range: start..start,
                         add,
