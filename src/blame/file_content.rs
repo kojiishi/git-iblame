@@ -170,16 +170,15 @@ impl FileContent {
         for line in self.lines.iter_mut() {
             line.clear_commit_id();
         }
-        let first_index =
-            if let Some(self_commit_diff) = history.commit_diff_from_commit_id(&self.commit_id()) {
-                let self_commit_index = self_commit_diff.index();
-                debug!("reapply {self_commit_index} {}", self.commit_id());
-                self_commit_index
-            } else {
-                debug!("reapply all");
-                assert_eq!(self.commit_id(), history.git().head_commit_id()?);
-                0
-            };
+        let first_index = if history.file_commits().is_empty() {
+            debug!("reapply: no commits loaded so far");
+            assert_eq!(self.commit_id(), history.git().head_commit_id()?);
+            0
+        } else {
+            let self_commit_index = history.commit_index_from_commit_id(self.commit_id())?;
+            debug!("reapply {self_commit_index} {}", self.commit_id());
+            self_commit_index
+        };
         self.apply_diffs(history, first_index)?;
         self.update_after_apply();
         debug!("reapply done, elapsed: {:?}", start_time.elapsed());
@@ -187,7 +186,7 @@ impl FileContent {
     }
 
     fn apply_diffs(&mut self, history: &FileHistory, first_index: usize) -> anyhow::Result<()> {
-        let all_commits = history.file_diffs();
+        let all_commits = history.file_commits();
         let commits = &all_commits[first_index..];
         for i in 0..commits.len() {
             let commit = &commits[i];

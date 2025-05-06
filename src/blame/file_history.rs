@@ -12,7 +12,7 @@ use super::{super::GitTools, CommitIterator, FileCommit, FileContent};
 pub struct FileHistory {
     path: PathBuf,
     git: Option<GitTools>,
-    file_diffs: Vec<FileCommit>,
+    file_commits: Vec<FileCommit>,
     commit_diff_index_from_commit_id: HashMap<git2::Oid, usize>,
     read_thread: Option<thread::JoinHandle<anyhow::Result<()>>>,
     rx: Option<mpsc::Receiver<FileCommit>>,
@@ -23,7 +23,7 @@ impl FileHistory {
         Self {
             path: path.to_path_buf(),
             git: None,
-            file_diffs: Vec::new(),
+            file_commits: Vec::new(),
             commit_diff_index_from_commit_id: HashMap::new(),
             read_thread: None,
             rx: None,
@@ -65,14 +65,38 @@ impl FileHistory {
         &self.path
     }
 
-    pub fn file_diffs(&self) -> &Vec<FileCommit> {
-        &self.file_diffs
+    pub fn file_commits(&self) -> &Vec<FileCommit> {
+        &self.file_commits
     }
 
-    pub fn commit_diff_from_commit_id(&self, commit_id: &git2::Oid) -> Option<&FileCommit> {
+    fn commit_index_from_commit_id_opt(&self, commit_id: git2::Oid) -> Option<usize> {
+        if commit_id.is_zero() {
+            if !self.file_commits.is_empty() {
+                return Some(0);
+            }
+            return None;
+        }
         self.commit_diff_index_from_commit_id
-            .get(commit_id)
-            .map(|index| &self.file_diffs[*index])
+            .get(&commit_id)
+            .copied()
+    }
+
+    pub fn commit_index_from_commit_id(&self, commit_id: git2::Oid) -> anyhow::Result<usize> {
+        self.commit_index_from_commit_id_opt(commit_id)
+            .ok_or_else(|| anyhow::anyhow!("Commit {commit_id:?} not found"))
+    }
+
+    fn commit_from_commit_id_opt(&self, commit_id: git2::Oid) -> Option<&FileCommit> {
+        if commit_id.is_zero() {
+            return self.file_commits.first();
+        }
+        self.commit_index_from_commit_id_opt(commit_id)
+            .map(|index| &self.file_commits[index])
+    }
+
+    pub fn commit_from_commit_id(&self, commit_id: git2::Oid) -> anyhow::Result<&FileCommit> {
+        self.commit_from_commit_id_opt(commit_id)
+            .ok_or_else(|| anyhow::anyhow!("Commit {commit_id:?} not found"))
     }
 
     pub fn is_reading(&self) -> bool {
@@ -109,11 +133,11 @@ impl FileHistory {
         let mut path = path.to_path_buf();
         for commit_id in &mut commits {
             trace!("Commit ID: {:?}, Path: {:?}", commit_id, path);
-            let mut diff = FileCommit::new(commit_id);
-            diff.read(&path, repository_path)?;
+            let mut diff = FileCommit::new(commit_id, &path);
+            diff.read(repository_path)?;
             if let Some(old_path) = diff.old_path() {
                 if path != old_path {
-                    trace!("read_thread: rename detected {:?} -> {:?}", old_path, path);
+                    debug!("read_thread: rename detected {:?} -> {:?}", old_path, path);
                     path = old_path.to_path_buf();
                 }
             }
@@ -133,17 +157,17 @@ impl FileHistory {
         loop {
             match rx.try_recv() {
                 Ok(mut diff) => {
-                    let index = self.file_diffs.len();
+                    let index = self.file_commits.len();
                     diff.set_index(index);
                     self.commit_diff_index_from_commit_id
                         .insert(diff.commit_id(), index);
-                    self.file_diffs.push(diff);
+                    self.file_commits.push(diff);
                     count += 1;
                 }
                 Err(mpsc::TryRecvError::Empty) => {
                     debug!(
                         "read_poll: {count} items, total {} items, {:?}",
-                        self.file_diffs.len(),
+                        self.file_commits.len(),
                         start_time.elapsed()
                     );
                     break;
@@ -151,9 +175,9 @@ impl FileHistory {
                 Err(mpsc::TryRecvError::Disconnected) => {
                     debug!(
                         "read_poll: disconnected, {count} items, total {} items, {:?}, {:#?}",
-                        self.file_diffs.len(),
+                        self.file_commits.len(),
                         start_time.elapsed(),
-                        self.file_diffs
+                        self.file_commits
                     );
                     self.read_join()?;
                     break;
@@ -164,7 +188,13 @@ impl FileHistory {
     }
 
     pub fn content(&mut self, commit_id: git2::Oid) -> anyhow::Result<FileContent> {
-        let mut content = FileContent::new(commit_id, &self.path);
+        debug!("content for {commit_id}");
+        let path = if commit_id.is_zero() {
+            &self.path
+        } else {
+            self.commit_from_commit_id(commit_id)?.path()
+        };
+        let mut content = FileContent::new(commit_id, path);
         // For testing, don't read if `path` is empty. See `new_for_test()`.
         if self.is_path_empty() {
             return Ok(content);

@@ -82,7 +82,7 @@ impl Line {
         }
 
         let blame = if let Some(commit_id) = self.commit_id {
-            let commit = history.commit_diff_from_commit_id(&commit_id).unwrap();
+            let commit = history.commit_from_commit_id(commit_id)?;
             match self.index_in_hunk {
                 0 => format!(
                     "#{} {}",

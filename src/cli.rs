@@ -101,7 +101,13 @@ impl Cli {
                 }
                 Command::Newer => {
                     if let Some(commit_id) = history.pop() {
+                        let path_before = renderer.path().to_path_buf();
                         renderer.set_commit_id(commit_id)?;
+                        if path_before != renderer.path() {
+                            ui.prompt = CommandPrompt::Message {
+                                message: format!("Path changed to {}", renderer.path().display()),
+                            };
+                        }
                     }
                 }
                 Command::Copy => {

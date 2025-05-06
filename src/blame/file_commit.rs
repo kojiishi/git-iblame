@@ -9,6 +9,7 @@ use super::DiffPart;
 #[derive(Debug)]
 pub struct FileCommit {
     commit_id: git2::Oid,
+    path: PathBuf,
     index: usize,
     time: git2::Time,
     summary: Option<String>,
@@ -18,9 +19,10 @@ pub struct FileCommit {
 }
 
 impl FileCommit {
-    pub fn new(commit_id: git2::Oid) -> Self {
+    pub fn new(commit_id: git2::Oid, path: &Path) -> Self {
         Self {
             commit_id,
+            path: path.to_path_buf(),
             index: 0,
             time: git2::Time::new(0, 0),
             summary: None,
@@ -54,6 +56,10 @@ impl FileCommit {
         self.author.as_ref()
     }
 
+    pub fn path(&self) -> &Path {
+        &self.path
+    }
+
     pub fn old_path(&self) -> Option<&Path> {
         self.old_path.as_deref()
     }
@@ -77,7 +83,8 @@ impl FileCommit {
         line_number
     }
 
-    pub fn read(&mut self, path: &Path, repository_path: &Path) -> anyhow::Result<()> {
+    pub fn read(&mut self, repository_path: &Path) -> anyhow::Result<()> {
+        let path = self.path.as_path();
         trace!("read diff for commit_id: {:?} {path:?}", self.commit_id);
         assert!(path.is_relative());
         assert!(self.diff_parts.is_empty());
