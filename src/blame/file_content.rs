@@ -178,7 +178,7 @@ impl FileContent {
         };
         self.apply_diffs(history, first_index)?;
         self.update_after_apply();
-        debug!("reapply done, elapsed: {:?}", start_time.elapsed());
+        trace!("reapply done, elapsed: {:?}", start_time.elapsed());
         Ok(())
     }
 

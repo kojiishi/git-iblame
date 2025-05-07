@@ -222,7 +222,8 @@ impl BlameRenderer {
         self.git().show(
             commit_id,
             if current_file_only {
-                Some(self.content.path())
+                let commit = self.history.commit_from_commit_id(commit_id)?;
+                Some(commit.path())
             } else {
                 None
             },

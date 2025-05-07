@@ -2,6 +2,7 @@ use std::path::{Path, PathBuf};
 
 use anyhow::*;
 use git2::{Oid, Repository, RepositoryOpenFlags};
+use log::*;
 
 pub struct GitTools {
     repository: Repository,
@@ -104,6 +105,7 @@ impl GitTools {
     }
 
     pub fn show(&self, commit_id: Oid, path: Option<&Path>) -> anyhow::Result<()> {
+        debug!("git-show: {commit_id} {path:?}");
         let mut command = std::process::Command::new("git");
         command.current_dir(self.repository_path());
         command.arg("show").arg(commit_id.to_string());

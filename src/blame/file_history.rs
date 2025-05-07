@@ -166,7 +166,7 @@ impl FileHistory {
                     count += 1;
                 }
                 Err(mpsc::TryRecvError::Empty) => {
-                    debug!(
+                    trace!(
                         "read_poll: {count} items, total {} items, {:?}",
                         self.file_commits.len(),
                         start_time.elapsed()
