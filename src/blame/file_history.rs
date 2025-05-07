@@ -48,7 +48,7 @@ impl FileHistory {
     fn ensure_git(&mut self) -> anyhow::Result<()> {
         if self.git.is_none() {
             let git = GitTools::from_file_path(&self.path)?;
-            self.path = git.path_in_repository(&self.path)?.to_path_buf();
+            self.path = git.path_in_workdir(&self.path)?;
             self.git = Some(git);
         }
         Ok(())
@@ -56,10 +56,6 @@ impl FileHistory {
 
     pub fn git(&self) -> &GitTools {
         self.git.as_ref().unwrap()
-    }
-
-    pub fn repository_path(&self) -> &Path {
-        self.git().root_path()
     }
 
     pub fn path(&self) -> &Path {
@@ -110,9 +106,9 @@ impl FileHistory {
 
     pub fn read_start(&mut self) -> anyhow::Result<()> {
         self.ensure_git()?;
-        debug!("path: {:?}, repo: {:?}", self.path, self.repository_path());
         let path = self.path.clone();
-        let repository_path = self.repository_path().to_path_buf();
+        let repository_path = self.git().repository_path().to_path_buf();
+        debug!("path: {:?}, repo: {:?}", path, repository_path);
         let (tx, rx) = mpsc::channel::<FileCommit>();
         self.rx = Some(rx);
         self.read_thread = Some(thread::spawn(move || {

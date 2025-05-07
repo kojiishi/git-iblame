@@ -5,11 +5,14 @@ use git2::{Oid, Repository, RepositoryOpenFlags};
 
 pub struct GitTools {
     repository: Repository,
-    root_path: PathBuf,
+    workdir_path: PathBuf,
 }
 
 impl GitTools {
     /// Construct from the `Path` to a file in the repository.
+    /// The `path` can be a path to a subdirectory inside the working directory
+    /// of the repository.
+    /// See <https://libgit2.org/docs/reference/main/repository/git_repository_open_ext.html>.
     pub fn from_file_path(path: &Path) -> anyhow::Result<Self> {
         let repository = Repository::open_ext(
             path,
@@ -19,6 +22,9 @@ impl GitTools {
         Self::from_repository(repository)
     }
 
+    /// The 'path' argument must point to either a git repository folder, or an
+    /// existing work dir.
+    /// See <https://libgit2.org/docs/reference/main/repository/git_repository_open.html>.
     pub fn from_repository_path(repository_path: &Path) -> anyhow::Result<Self> {
         let repository = Repository::open(repository_path)?;
         Self::from_repository(repository)
@@ -26,10 +32,10 @@ impl GitTools {
 
     fn from_repository(repository: Repository) -> anyhow::Result<Self> {
         let git_path = repository.path().canonicalize()?;
-        let root_path = git_path.parent().unwrap();
+        let workdir_path = git_path.parent().unwrap();
         Ok(Self {
             repository,
-            root_path: root_path.to_path_buf(),
+            workdir_path: workdir_path.to_path_buf(),
         })
     }
 
@@ -38,27 +44,32 @@ impl GitTools {
         &self.repository
     }
 
-    /// Get the canonicalized root directory.
-    pub fn root_path(&self) -> &Path {
-        &self.root_path
+    /// Get the repository path; i.e., the `.git` directory.
+    pub fn repository_path(&self) -> &Path {
+        self.repository.path()
+    }
+
+    /// Get the canonicalized root directory of the worktree .
+    pub(crate) fn workdir_path(&self) -> &Path {
+        &self.workdir_path
+    }
+
+    pub fn path_in_workdir(&self, path: &Path) -> anyhow::Result<PathBuf> {
+        let path = path.canonicalize()?;
+        let path = path.strip_prefix(self.workdir_path())?;
+        Ok(Self::to_posix_path(path))
     }
 
     #[cfg(target_os = "windows")]
-    pub fn to_posix_path(path: &Path) -> PathBuf {
+    fn to_posix_path(path: &Path) -> PathBuf {
         assert!(path.is_relative());
         let path_str = path.to_string_lossy().replace('\\', "/");
         PathBuf::from(path_str)
     }
 
     #[cfg(not(target_os = "windows"))]
-    pub fn to_posix_path(path: &Path) -> PathBuf {
+    fn to_posix_path(path: &Path) -> PathBuf {
         path.to_path_buf()
-    }
-
-    pub fn path_in_repository(&self, path: &Path) -> anyhow::Result<PathBuf> {
-        let path = path.canonicalize()?;
-        let path = path.strip_prefix(self.root_path())?;
-        Ok(Self::to_posix_path(path))
     }
 
     pub fn head_commit_id(&self) -> anyhow::Result<Oid> {
@@ -94,7 +105,7 @@ impl GitTools {
 
     pub fn show(&self, commit_id: Oid, path: Option<&Path>) -> anyhow::Result<()> {
         let mut command = std::process::Command::new("git");
-        command.current_dir(self.root_path());
+        command.current_dir(self.repository_path());
         command.arg("show").arg(commit_id.to_string());
         if let Some(path) = path {
             command.arg("--").arg(path);
@@ -135,12 +146,12 @@ pub(crate) mod tests {
             self.git.repository()
         }
 
-        pub fn root_path(&self) -> &Path {
-            self.git.root_path()
+        pub fn worktree_path(&self) -> &Path {
+            self.git.workdir_path()
         }
 
         pub fn commit_file(&self, path: &Path, content: &str) -> anyhow::Result<()> {
-            let file_path = self.root_path().join(path);
+            let file_path = self.worktree_path().join(path);
             std::fs::create_dir_all(file_path.parent().unwrap())?;
             std::fs::write(&file_path, content)?;
 
