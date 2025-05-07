@@ -90,6 +90,20 @@ impl CommandUI {
         None
     }
 
+    pub fn set_error(&mut self, error: anyhow::Error) {
+        self.prompt = CommandPrompt::Err { error };
+    }
+
+    pub fn set_result(&mut self, result: anyhow::Result<()>) {
+        if let Err(error) = result {
+            self.set_error(error);
+        }
+    }
+
+    pub fn set_prompt(&mut self, message: String) {
+        self.prompt = CommandPrompt::Message { message };
+    }
+
     pub fn wait_for_any_key(message: &str) -> anyhow::Result<()> {
         let mut out = stdout();
         queue!(out, style::Print(message))?;
