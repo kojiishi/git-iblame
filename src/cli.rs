@@ -59,10 +59,11 @@ impl Cli {
                 Duration::ZERO
             };
             let command = ui.read(command_rows)?;
-            if command == Command::Quit {
-                break;
+            match command {
+                Command::Quit => break,
+                Command::Timeout => {}
+                _ => ui.prompt = CommandPrompt::None,
             }
-            ui.prompt = CommandPrompt::None;
             let result = self.handle_command(command, &mut renderer, &mut ui);
             ui.set_result(result);
         }
