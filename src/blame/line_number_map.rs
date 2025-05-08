@@ -35,14 +35,14 @@ impl LineNumberMap {
         let mut sub = 0;
         for part in parts {
             trace!("new_new_from_old: {:?}", part);
-            let (old, new) = get_from_to(part);
-            let old_size = old.len();
-            let new_size = new.len();
-            match new_size.cmp(&old_size) {
+            let (from, to) = get_from_to(part);
+            let from_size = from.len();
+            let to_size = to.len();
+            match to_size.cmp(&from_size) {
                 Ordering::Equal => {}
                 Ordering::Greater => {
-                    let start = old.line_numbers.start + old_size;
-                    add += new_size - old_size;
+                    let start = from.line_numbers.start + from_size;
+                    add += to_size - from_size;
                     items.push(LineNumberMapItem {
                         range: start..start,
                         add,
@@ -51,14 +51,14 @@ impl LineNumberMap {
                     });
                 }
                 Ordering::Less => {
-                    let mut start = old.line_numbers.start + new_size;
+                    let mut start = from.line_numbers.start + to_size;
                     items.push(LineNumberMapItem {
                         range: start..start,
                         add,
                         sub,
                         is_delete: true,
                     });
-                    let delta = old_size - new_size;
+                    let delta = from_size - to_size;
                     sub += delta;
                     start += delta;
                     items.push(LineNumberMapItem {
@@ -128,6 +128,7 @@ impl LineNumberMap {
             } else {
                 *value + item.add - item.sub
             };
+
             // trace!("apply_to_values: {} -> {}", *value, new_value);
             assert!(new_value >= last_new_value);
             last_new_value = new_value;
