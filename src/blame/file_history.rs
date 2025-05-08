@@ -8,6 +8,8 @@ use std::{
 
 use log::*;
 
+use crate::blame::LineNumberMap;
+
 use super::{super::GitTools, CommitIterator, FileCommit, FileContent};
 
 pub struct FileHistory {
@@ -98,6 +100,67 @@ impl FileHistory {
     pub fn commit_from_commit_id(&self, commit_id: git2::Oid) -> anyhow::Result<&FileCommit> {
         self.commit_from_commit_id_opt(commit_id)
             .ok_or_else(|| anyhow::anyhow!("Commit {commit_id:?} not found"))
+    }
+
+    pub fn map_line_number_by_commit_ids(
+        &self,
+        line_number: usize,
+        new_commit_id: git2::Oid,
+        current_commit_id: git2::Oid,
+    ) -> anyhow::Result<usize> {
+        assert!(current_commit_id != new_commit_id);
+        let current_index = self.commit_index_from_commit_id(current_commit_id)?;
+        let new_index = self.commit_index_from_commit_id(new_commit_id)?;
+        Ok(self.map_line_number_by_indexes(line_number, new_index, current_index))
+    }
+
+    pub fn map_line_number_by_indexes(
+        &self,
+        line_number: usize,
+        new_index: usize,
+        current_index: usize,
+    ) -> usize {
+        assert!(new_index != current_index);
+        let is_new_from_old = new_index < current_index;
+        let new_line_number = if is_new_from_old {
+            self.map_line_number_by_index_iterator(
+                line_number,
+                is_new_from_old,
+                (new_index..current_index).rev(),
+            )
+        } else {
+            self.map_line_number_by_index_iterator(
+                line_number,
+                is_new_from_old,
+                (current_index + 1)..=new_index,
+            )
+        };
+        debug!(
+            "map_line_number_by_indexes: \
+            {line_number}@{current_index} \
+            -> {new_line_number}@{new_index}"
+        );
+        new_line_number
+    }
+
+    fn map_line_number_by_index_iterator(
+        &self,
+        line_number: usize,
+        is_new_from_old: bool,
+        indexes: impl Iterator<Item = usize>,
+    ) -> usize {
+        let mut new_line_number = line_number;
+        for i in indexes {
+            let commit = self.file_commit(i);
+            let line_number_map = if is_new_from_old {
+                LineNumberMap::new_new_from_old(commit.diff_parts())
+            } else {
+                LineNumberMap::new_old_from_new(commit.diff_parts())
+            };
+            new_line_number = line_number_map.map(new_line_number);
+        }
+        debug!("map_line_number: {line_number} -> {new_line_number}");
+        new_line_number
     }
 
     pub fn is_reading(&self) -> bool {

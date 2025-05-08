@@ -1,10 +1,9 @@
 use std::{io::Write, ops::Range, path::Path};
 
-use crate::{blame::LineNumberMap, *};
+use crate::*;
 use anyhow::bail;
 use crossterm::{cursor, queue, terminal};
 use git2::Oid;
-use log::*;
 
 pub struct BlameRenderer {
     history: blame::FileHistory,
@@ -181,21 +180,14 @@ impl BlameRenderer {
     }
 
     pub fn set_commit_id(&mut self, commit_id: Oid) -> anyhow::Result<()> {
-        self.set_commit_id_core(commit_id, None, None)
-    }
-
-    fn set_commit_id_core(
-        &mut self,
-        commit_id: Oid,
-        _path: Option<&Path>,
-        line_number: Option<usize>,
-    ) -> anyhow::Result<()> {
+        let line_number = self.history.map_line_number_by_commit_ids(
+            self.current_line_number(),
+            commit_id,
+            self.commit_id(),
+        )?;
         let mut content = self.history_mut().content(commit_id)?;
-        if let Some(line_number) = line_number {
-            content.set_current_line_number(line_number);
-        }
+        content.set_current_line_number(line_number);
         self.swap_content(&mut content);
-        // TODO: Put back to cache.
         Ok(())
     }
 
@@ -206,15 +198,9 @@ impl BlameRenderer {
         if parent_commit_index >= self.history.file_commits().len() {
             bail!("No commits before {commit_id}");
         }
-
-        let commit = self.history.file_commit(commit_index);
-        let line_number_map = LineNumberMap::new_old_from_new(commit.diff_parts());
-        let line_number = self.current_line_number();
-        let mapped_line_number = line_number_map.map(line_number);
-        debug!("older: line number {line_number}=>{mapped_line_number}");
-
         let parent_commit = self.history.file_commit(parent_commit_index);
-        self.set_commit_id_core(parent_commit.commit_id(), None, Some(mapped_line_number))
+        let parent_commit_id = parent_commit.commit_id();
+        self.set_commit_id(parent_commit_id)
     }
 
     pub fn show_current_line_commit(&mut self, current_file_only: bool) -> anyhow::Result<()> {
