@@ -1,4 +1,5 @@
 use std::{
+    cmp,
     collections::HashMap,
     path::{Path, PathBuf},
     sync::mpsc,
@@ -10,7 +11,7 @@ use log::*;
 
 use crate::blame::LineNumberMap;
 
-use super::{super::GitTools, CommitIterator, FileCommit, FileContent};
+use super::{super::GitTools, CommitIterator, DiffPart, FileCommit, FileContent};
 
 pub struct FileHistory {
     path: PathBuf,
@@ -120,24 +121,21 @@ impl FileHistory {
         new_index: usize,
         current_index: usize,
     ) -> usize {
-        assert!(new_index != current_index);
-        let is_new_from_old = new_index < current_index;
-        let new_line_number = if is_new_from_old {
-            self.map_line_number_by_index_iterator(
+        let new_line_number = match new_index.cmp(&current_index) {
+            cmp::Ordering::Less => self.map_line_number_by_index_iterator(
                 line_number,
-                is_new_from_old,
                 (new_index..current_index).rev(),
-            )
-        } else {
-            self.map_line_number_by_index_iterator(
+                LineNumberMap::new_new_from_old,
+            ),
+            cmp::Ordering::Greater => self.map_line_number_by_index_iterator(
                 line_number,
-                is_new_from_old,
-                (current_index + 1)..=new_index,
-            )
+                current_index..new_index,
+                LineNumberMap::new_old_from_new,
+            ),
+            cmp::Ordering::Equal => unreachable!("new and current should not be equal"),
         };
         debug!(
-            "map_line_number_by_indexes: \
-            {line_number}@{current_index} \
+            "map_line_number_by_indexes: {line_number}@{current_index} \
             -> {new_line_number}@{new_index}"
         );
         new_line_number
@@ -146,17 +144,13 @@ impl FileHistory {
     fn map_line_number_by_index_iterator(
         &self,
         line_number: usize,
-        is_new_from_old: bool,
         indexes: impl Iterator<Item = usize>,
+        get_line_number_map: fn(&Vec<DiffPart>) -> LineNumberMap,
     ) -> usize {
         let mut new_line_number = line_number;
-        for i in indexes {
-            let commit = self.file_commit(i);
-            let line_number_map = if is_new_from_old {
-                LineNumberMap::new_new_from_old(commit.diff_parts())
-            } else {
-                LineNumberMap::new_old_from_new(commit.diff_parts())
-            };
+        for index in indexes {
+            let commit = self.file_commit(index);
+            let line_number_map = get_line_number_map(commit.diff_parts());
             new_line_number = line_number_map.map(new_line_number);
         }
         debug!("map_line_number: {line_number} -> {new_line_number}");
