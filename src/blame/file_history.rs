@@ -244,7 +244,7 @@ impl FileHistory {
         Ok(count > 0)
     }
 
-    pub fn content(&mut self, commit_id: git2::Oid) -> anyhow::Result<FileContent> {
+    pub fn content(&self, commit_id: git2::Oid) -> anyhow::Result<FileContent> {
         debug!("content for {commit_id}");
         let path = if commit_id.is_zero() {
             &self.path

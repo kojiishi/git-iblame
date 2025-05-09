@@ -16,7 +16,7 @@ pub struct BlameRenderer {
 }
 
 impl BlameRenderer {
-    pub fn new(mut history: blame::FileHistory) -> anyhow::Result<Self> {
+    pub fn new(history: blame::FileHistory) -> anyhow::Result<Self> {
         let content = history.content(git2::Oid::zero())?;
         Ok(Self {
             history,
@@ -185,7 +185,7 @@ impl BlameRenderer {
             commit_id,
             self.commit_id(),
         )?;
-        let mut content = self.history_mut().content(commit_id)?;
+        let mut content = self.history().content(commit_id)?;
         content.set_current_line_number(line_number);
         self.swap_content(&mut content);
         Ok(())
