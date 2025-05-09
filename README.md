@@ -30,10 +30,10 @@ especially when the repository is large.
 The `git-iblame` can make it instant.
 
 To make the traversals of the history instant,
-The `git-iblame` has its own file history engine,
-without using the one provided by the [`git blame`],
-but built on top of the fundamental git operations
-provided by [git2]/[libgit2].
+the `git-iblame` has its own file history engine.
+This engine is built on top of the fundamental git operations
+provided by [git2]/[libgit2],
+without using the logic of the [`git blame`].
 
 Also to make the traversals even more comfortable,
 the engine runs in background.
@@ -42,8 +42,8 @@ come up incrementally while you are browsing.
 
 Re-computing the hisotry annotations for different trees is also instant.
 Unlike the [`git blame`] which needs to read from the disk each time it is ran,
-the `git-iblame` can build the history for different trees instantly
-from its own data structure kept in memory.
+the `git-iblame` can compute the history for different trees instantly
+from its own data structure in memory.
 
 [`git blame`]: https://git-scm.com/docs/git-blame
 [git2]: https://docs.rs/git2/latest/git2/
