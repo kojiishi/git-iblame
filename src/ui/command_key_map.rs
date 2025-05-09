@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crossterm::event::{KeyCode, KeyModifiers};
 
-use crate::Command;
+use crate::*;
 
 #[derive(Debug, Default)]
 pub struct CommandKeyMap {

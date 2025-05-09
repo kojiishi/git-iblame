@@ -281,7 +281,7 @@ mod tests {
     #[test]
     fn search() -> anyhow::Result<()> {
         let mut content = FileContent::new_for_test();
-        content.read_lines(((0..10).chain(0..10)).map(|i| i.to_string()));
+        content.set_lines_for_test(((0..10).chain(0..10)).map(|i| i.to_string()));
         let mut test = |start_index: usize, search: &str| -> (Option<usize>, Option<usize>) {
             content.set_current_line_index(start_index);
             (content.search(search, false), content.search(search, true))

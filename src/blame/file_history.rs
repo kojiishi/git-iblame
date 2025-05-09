@@ -8,9 +8,9 @@ use std::{
 
 use log::*;
 
-use crate::blame::LineNumberMap;
+use crate::GitTools;
 
-use super::{super::GitTools, CommitIterator, DiffPart, FileCommit, FileContent};
+use super::{CommitIterator, DiffPart, FileCommit, FileContent, LineNumberMap};
 
 pub struct FileHistory {
     path: PathBuf,
@@ -58,10 +58,6 @@ impl FileHistory {
 
     pub fn git(&self) -> &GitTools {
         self.git.as_ref().unwrap()
-    }
-
-    pub fn path(&self) -> &Path {
-        &self.path
     }
 
     pub fn file_commits(&self) -> &Vec<FileCommit> {

@@ -60,10 +60,6 @@ impl DiffRange {
         self.line_numbers.is_empty()
     }
 
-    pub fn start_line_number(&self) -> usize {
-        self.line_numbers.start
-    }
-
     pub fn line_numbers(&self) -> &Range<usize> {
         &self.line_numbers
     }

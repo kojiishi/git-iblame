@@ -95,15 +95,6 @@ impl GitTools {
         Ok(std::str::from_utf8(blob.content())?.to_string())
     }
 
-    /// Get the commit id of one older commit of `commit_id`.
-    pub fn older_commit_id(&self, commit_id: Oid) -> Result<Option<Oid>, git2::Error> {
-        let mut revwalk = self.repository.revwalk()?;
-        revwalk.push(commit_id)?;
-        let first_id = revwalk.next().unwrap()?;
-        assert_eq!(commit_id, first_id);
-        revwalk.next().transpose()
-    }
-
     pub fn show(&self, commit_id: Oid, path: Option<&Path>) -> anyhow::Result<()> {
         debug!("git-show: {commit_id} {path:?}");
         let mut command = std::process::Command::new("git");

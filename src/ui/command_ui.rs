@@ -5,7 +5,7 @@ use std::{
 
 use crossterm::{event, queue, style};
 
-use crate::{Command, CommandKeyMap, CommandPrompt};
+use crate::*;
 
 #[derive(Debug, Default)]
 pub struct CommandUI {

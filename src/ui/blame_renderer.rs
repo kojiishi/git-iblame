@@ -1,13 +1,14 @@
 use std::{io::Write, ops::Range, path::Path};
 
-use crate::*;
 use anyhow::bail;
 use crossterm::{cursor, queue, terminal};
 use git2::Oid;
 
+use crate::*;
+
 pub struct BlameRenderer {
-    history: blame::FileHistory,
-    content: blame::FileContent,
+    history: FileHistory,
+    content: FileContent,
     view_size: (u16, u16),
     rendered_rows: u16,
     rendered_current_line_index: usize,
@@ -16,7 +17,7 @@ pub struct BlameRenderer {
 }
 
 impl BlameRenderer {
-    pub fn new(history: blame::FileHistory) -> anyhow::Result<Self> {
+    pub fn new(history: FileHistory) -> anyhow::Result<Self> {
         let content = history.content(git2::Oid::zero())?;
         Ok(Self {
             history,
@@ -31,15 +32,15 @@ impl BlameRenderer {
 
     #[cfg(test)]
     pub fn new_for_test() -> anyhow::Result<Self> {
-        let history = blame::FileHistory::new_for_test();
+        let history = FileHistory::new_for_test();
         Self::new(history)
     }
 
-    pub fn history(&self) -> &blame::FileHistory {
+    pub fn history(&self) -> &FileHistory {
         &self.history
     }
 
-    pub fn history_mut(&mut self) -> &mut blame::FileHistory {
+    pub fn history_mut(&mut self) -> &mut FileHistory {
         &mut self.history
     }
 
@@ -76,7 +77,7 @@ impl BlameRenderer {
         self.content.current_line_index()
     }
 
-    fn current_line(&self) -> &blame::Line {
+    fn current_line(&self) -> &Line {
         self.content.current_line()
     }
 
@@ -165,7 +166,7 @@ impl BlameRenderer {
         self.content.path()
     }
 
-    fn swap_content(&mut self, content: &mut blame::FileContent) {
+    fn swap_content(&mut self, content: &mut FileContent) {
         std::mem::swap(&mut self.content, content);
         self.invalidate_render();
         self.scroll_current_line_into_view();
@@ -316,7 +317,7 @@ impl BlameRenderer {
         lines: Iter,
     ) -> anyhow::Result<u16>
     where
-        Iter: Iterator<Item = &'a blame::Line>,
+        Iter: Iterator<Item = &'a Line>,
     {
         let mut row = start_row;
         let current_line_number = self.current_line_number();

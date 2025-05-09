@@ -38,7 +38,7 @@ impl Cli {
 
     /// Run the `git-iblame` command line interface.
     pub fn run(&mut self) -> anyhow::Result<()> {
-        let mut history = blame::FileHistory::new(&self.path);
+        let mut history = FileHistory::new(&self.path);
         history.read_start()?;
 
         let mut renderer = BlameRenderer::new(history)?;
