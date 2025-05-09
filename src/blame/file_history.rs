@@ -4,7 +4,6 @@ use std::{
     path::{Path, PathBuf},
     sync::mpsc,
     thread,
-    time::Duration,
 };
 
 use log::*;
@@ -245,29 +244,18 @@ impl FileHistory {
         Ok(count > 0)
     }
 
-    pub fn content(&mut self, mut commit_id: git2::Oid) -> anyhow::Result<FileContent> {
+    pub fn content(&mut self, commit_id: git2::Oid) -> anyhow::Result<FileContent> {
         debug!("content for {commit_id}");
+        let path = if commit_id.is_zero() {
+            &self.path
+        } else {
+            self.commit_from_commit_id(commit_id)?.path()
+        };
+        let mut content = FileContent::new(commit_id, path);
         // For testing, don't read if `path` is empty. See `new_for_test()`.
         if self.is_path_empty() {
-            return Ok(FileContent::new(commit_id, &self.path));
+            return Ok(content);
         }
-
-        let commit = if commit_id.is_zero() {
-            while self.file_commits.is_empty() {
-                // At least the newest commit is required to load content.
-                // TODO: This could be better.
-                debug!("Waiting for at least one commit loaded");
-                thread::sleep(Duration::from_millis(100));
-                self.read_poll()?;
-            }
-            let commit = self.file_commit(0);
-            commit_id = commit.commit_id();
-            commit
-        } else {
-            self.commit_from_commit_id(commit_id)?
-        };
-
-        let mut content = FileContent::new(commit_id, commit.path());
         content.read(self.git())?;
         content.reapply(self)?;
         Ok(content)

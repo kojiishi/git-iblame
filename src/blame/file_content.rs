@@ -135,6 +135,9 @@ impl FileContent {
     }
 
     pub fn read(&mut self, git: &GitTools) -> anyhow::Result<()> {
+        if self.commit_id.is_zero() {
+            self.commit_id = git.head_commit_id()?;
+        }
         let content = git.content_as_string(self.commit_id, &self.path)?;
         self.read_string(&content);
         Ok(())
