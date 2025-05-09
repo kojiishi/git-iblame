@@ -65,6 +65,7 @@ impl Line {
         out: &mut impl Write,
         current_line_number: usize,
         history: &FileHistory,
+        max_columns: usize,
     ) -> anyhow::Result<()> {
         let mut should_reset = false;
         if self.line_number == current_line_number {
@@ -104,8 +105,9 @@ impl Line {
         } else {
             "...".to_string()
         };
-        let left_side = format!("{number:4}:{blame:25.25}|", number = self.line_number);
-        queue!(out, style::Print(left_side))?;
+        let left_pane = format!("{number:4}:{blame:25.25}|", number = self.line_number);
+        let left_pane_len = left_pane.len();
+        queue!(out, style::Print(left_pane))?;
 
         if should_reset {
             queue!(
@@ -115,7 +117,13 @@ impl Line {
             )?;
         }
 
-        queue!(out, style::Print(&self.content))?;
+        let max_main_pane = max_columns.saturating_sub(left_pane_len);
+        let mut content = self.content.as_str();
+        content = match content.char_indices().nth(max_main_pane) {
+            None => content,
+            Some((idx, _)) => &content[..idx],
+        };
+        queue!(out, style::Print(content))?;
 
         Ok(())
     }

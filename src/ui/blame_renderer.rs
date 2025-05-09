@@ -48,6 +48,10 @@ impl BlameRenderer {
         self.history.git()
     }
 
+    pub fn view_cols(&self) -> u16 {
+        self.view_size.0
+    }
+
     pub fn view_rows(&self) -> u16 {
         self.view_size.1
     }
@@ -326,7 +330,12 @@ impl BlameRenderer {
             if should_clear_lines {
                 queue!(out, terminal::Clear(terminal::ClearType::CurrentLine))?;
             }
-            line.render(out, current_line_number, self.history())?;
+            line.render(
+                out,
+                current_line_number,
+                self.history(),
+                self.view_cols() as usize,
+            )?;
             row += 1;
         }
         Ok(row)
