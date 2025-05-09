@@ -135,10 +135,12 @@ impl FileContent {
     }
 
     pub fn read(&mut self, git: &GitTools) -> anyhow::Result<()> {
-        if self.commit_id.is_zero() {
-            self.commit_id = git.head_commit_id()?;
-        }
-        let content = git.content_as_string(self.commit_id, &self.path)?;
+        let commit_id = if self.commit_id.is_zero() {
+            git.head_commit_id()?
+        } else {
+            self.commit_id
+        };
+        let content = git.content_as_string(commit_id, &self.path)?;
         self.read_string(&content);
         Ok(())
     }
@@ -166,20 +168,20 @@ impl FileContent {
     }
 
     pub fn reapply(&mut self, history: &FileHistory) -> anyhow::Result<()> {
+        assert!(!history.commits().is_empty());
         let start_time = std::time::Instant::now();
         for line in self.lines.iter_mut() {
             line.clear_commit_id();
         }
-        let first_index = if history.commits().is_empty() {
-            debug!("reapply: no commits loaded so far");
-            assert_eq!(self.commit_id(), history.git().head_commit_id()?);
+
+        let self_commit_index = if self.commit_id().is_zero() {
+            self.commit_id = history.commit(0).commit_id();
             0
         } else {
-            let self_commit_index = history.commit_index_from_commit_id(self.commit_id())?;
-            debug!("reapply {self_commit_index} {}", self.commit_id());
-            self_commit_index
+            history.commit_index_from_commit_id(self.commit_id())?
         };
-        self.apply_diffs(history, first_index)?;
+        debug!("reapply {self_commit_index} {}", self.commit_id());
+        self.apply_diffs(history, self_commit_index)?;
         self.update_after_apply();
         trace!("reapply done, elapsed: {:?}", start_time.elapsed());
         Ok(())

@@ -251,7 +251,9 @@ impl FileHistory {
             return Ok(content);
         }
         content.read(self.git())?;
-        content.reapply(self)?;
+        if !self.commits.is_empty() {
+            content.reapply(self)?;
+        }
         Ok(content)
     }
 }
