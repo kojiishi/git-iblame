@@ -78,7 +78,13 @@ impl CommandKeyMap {
             key_str
         } else if modifiers == KeyModifiers::CONTROL {
             // `^` is a well-known prefix for `Control` keys.
-            format!("^{}", key_str.to_uppercase())
+            format!(
+                "^{}",
+                match key {
+                    KeyCode::Char(_) => key_str.to_uppercase(),
+                    _ => key_str,
+                }
+            )
         } else {
             format!("{}+{}", modifiers, key_str)
         }
@@ -201,6 +207,7 @@ mod tests {
         assert_eq!(target(KeyCode::Char('a'), KeyModifiers::CONTROL), "^A");
 
         assert_eq!(target(KeyCode::Up, KeyModifiers::NONE), "Up");
+        assert_eq!(target(KeyCode::Up, KeyModifiers::CONTROL), "^Up");
         assert_eq!(target(KeyCode::Up, KeyModifiers::SHIFT), "Shift+Up");
         Ok(())
     }
