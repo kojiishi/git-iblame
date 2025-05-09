@@ -32,8 +32,8 @@ The `git-iblame` can make it instant.
 To make the traversals of the history instant,
 the `git-iblame` has its own file history engine.
 This engine is built on top of the fundamental git operations
-provided by [git2]/[libgit2],
-without using the logic of the [`git blame`].
+provided by the [git2]/[libgit2],
+without using the logic in the [`git blame`].
 
 Also to make the traversals even more comfortable,
 the engine runs in background.
@@ -41,9 +41,9 @@ Old annotations which takes time to read from the disk
 come up incrementally while you are browsing.
 
 Re-computing the hisotry annotations for different trees is also instant.
-Unlike the [`git blame`] which needs to read from the disk each time it is ran,
-the `git-iblame` can compute the history for different trees instantly
-from its own data structure in memory.
+The `git-iblame` can compute the history for different trees instantly
+from its own data structure in memory,
+unlike the [`git blame`] which needs to read from the disk each time it is ran.
 
 [`git blame`]: https://git-scm.com/docs/git-blame
 [git2]: https://docs.rs/git2/latest/git2/
