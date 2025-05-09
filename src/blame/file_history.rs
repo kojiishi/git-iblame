@@ -15,8 +15,8 @@ use super::{CommitIterator, DiffPart, FileCommit, FileContent, LineNumberMap};
 pub struct FileHistory {
     path: PathBuf,
     git: Option<GitTools>,
-    file_commits: Vec<FileCommit>,
-    commit_diff_index_from_commit_id: HashMap<git2::Oid, usize>,
+    commits: Vec<FileCommit>,
+    commit_index_from_commit_id: HashMap<git2::Oid, usize>,
     read_thread: Option<thread::JoinHandle<anyhow::Result<()>>>,
     rx: Option<mpsc::Receiver<FileCommit>>,
 }
@@ -26,8 +26,8 @@ impl FileHistory {
         Self {
             path: path.to_path_buf(),
             git: None,
-            file_commits: Vec::new(),
-            commit_diff_index_from_commit_id: HashMap::new(),
+            commits: Vec::new(),
+            commit_index_from_commit_id: HashMap::new(),
             read_thread: None,
             rx: None,
         }
@@ -60,24 +60,22 @@ impl FileHistory {
         self.git.as_ref().unwrap()
     }
 
-    pub fn file_commits(&self) -> &Vec<FileCommit> {
-        &self.file_commits
+    pub fn commits(&self) -> &Vec<FileCommit> {
+        &self.commits
     }
 
-    pub fn file_commit(&self, index: usize) -> &FileCommit {
-        &self.file_commits[index]
+    pub fn commit(&self, index: usize) -> &FileCommit {
+        &self.commits[index]
     }
 
     fn commit_index_from_commit_id_opt(&self, commit_id: git2::Oid) -> Option<usize> {
         if commit_id.is_zero() {
-            if !self.file_commits.is_empty() {
+            if !self.commits.is_empty() {
                 return Some(0);
             }
             return None;
         }
-        self.commit_diff_index_from_commit_id
-            .get(&commit_id)
-            .copied()
+        self.commit_index_from_commit_id.get(&commit_id).copied()
     }
 
     pub fn commit_index_from_commit_id(&self, commit_id: git2::Oid) -> anyhow::Result<usize> {
@@ -87,10 +85,10 @@ impl FileHistory {
 
     fn commit_from_commit_id_opt(&self, commit_id: git2::Oid) -> Option<&FileCommit> {
         if commit_id.is_zero() {
-            return self.file_commits.first();
+            return self.commits.first();
         }
         self.commit_index_from_commit_id_opt(commit_id)
-            .map(|index| &self.file_commits[index])
+            .map(|index| &self.commits[index])
     }
 
     pub fn commit_from_commit_id(&self, commit_id: git2::Oid) -> anyhow::Result<&FileCommit> {
@@ -144,7 +142,7 @@ impl FileHistory {
     ) -> usize {
         let mut new_line_number = line_number;
         for index in indexes {
-            let commit = self.file_commit(index);
+            let commit = self.commit(index);
             let line_number_map = get_line_number_map(commit.diff_parts());
             new_line_number = line_number_map.map(new_line_number);
         }
@@ -210,17 +208,17 @@ impl FileHistory {
         loop {
             match rx.try_recv() {
                 Ok(mut diff) => {
-                    let index = self.file_commits.len();
+                    let index = self.commits.len();
                     diff.set_index(index);
-                    self.commit_diff_index_from_commit_id
+                    self.commit_index_from_commit_id
                         .insert(diff.commit_id(), index);
-                    self.file_commits.push(diff);
+                    self.commits.push(diff);
                     count += 1;
                 }
                 Err(mpsc::TryRecvError::Empty) => {
                     trace!(
                         "read_poll: {count} items, total {} items, {:?}",
-                        self.file_commits.len(),
+                        self.commits.len(),
                         start_time.elapsed()
                     );
                     break;
@@ -228,10 +226,10 @@ impl FileHistory {
                 Err(mpsc::TryRecvError::Disconnected) => {
                     debug!(
                         "read_poll: disconnected, {count} items, total {} items, {:?}",
-                        self.file_commits.len(),
+                        self.commits.len(),
                         start_time.elapsed(),
                     );
-                    trace!("{:#?}", self.file_commits);
+                    trace!("{:#?}", self.commits);
                     self.read_join()?;
                     break;
                 }

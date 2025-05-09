@@ -196,10 +196,10 @@ impl BlameRenderer {
         let commit_id = self.current_line_commit_id()?;
         let commit_index = self.history.commit_index_from_commit_id(commit_id)?;
         let parent_commit_index = commit_index + 1;
-        if parent_commit_index >= self.history.file_commits().len() {
+        if parent_commit_index >= self.history.commits().len() {
             bail!("No commits before {commit_id}");
         }
-        let parent_commit = self.history.file_commit(parent_commit_index);
+        let parent_commit = self.history.commit(parent_commit_index);
         let parent_commit_id = parent_commit.commit_id();
         self.set_commit_id(parent_commit_id)
     }
