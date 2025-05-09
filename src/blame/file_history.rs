@@ -47,6 +47,10 @@ impl FileHistory {
         false
     }
 
+    pub fn git(&self) -> &GitTools {
+        self.git.as_ref().unwrap()
+    }
+
     fn ensure_git(&mut self) -> anyhow::Result<()> {
         if self.git.is_none() {
             let git = GitTools::from_file_path(&self.path)?;
@@ -54,10 +58,6 @@ impl FileHistory {
             self.git = Some(git);
         }
         Ok(())
-    }
-
-    pub fn git(&self) -> &GitTools {
-        self.git.as_ref().unwrap()
     }
 
     pub fn commits(&self) -> &Vec<FileCommit> {
@@ -100,41 +100,41 @@ impl FileHistory {
         &self,
         line_number: usize,
         new_commit_id: git2::Oid,
-        current_commit_id: git2::Oid,
+        old_commit_id: git2::Oid,
     ) -> anyhow::Result<usize> {
-        assert!(current_commit_id != new_commit_id);
-        let current_index = self.commit_index_from_commit_id(current_commit_id)?;
+        assert!(old_commit_id != new_commit_id);
+        let current_index = self.commit_index_from_commit_id(old_commit_id)?;
         let new_index = self.commit_index_from_commit_id(new_commit_id)?;
-        Ok(self.map_line_number_by_indexes(line_number, new_index, current_index))
+        Ok(self.map_line_number_by_commit_indexes(line_number, new_index, current_index))
     }
 
-    pub fn map_line_number_by_indexes(
+    pub fn map_line_number_by_commit_indexes(
         &self,
         line_number: usize,
         new_index: usize,
-        current_index: usize,
+        old_index: usize,
     ) -> usize {
-        let new_line_number = match new_index.cmp(&current_index) {
-            cmp::Ordering::Less => self.map_line_number_by_index_iterator(
+        let new_line_number = match new_index.cmp(&old_index) {
+            cmp::Ordering::Less => self.map_line_number_by_commit_index_iterator(
                 line_number,
-                (new_index..current_index).rev(),
+                (new_index..old_index).rev(),
                 LineNumberMap::new_new_from_old,
             ),
-            cmp::Ordering::Greater => self.map_line_number_by_index_iterator(
+            cmp::Ordering::Greater => self.map_line_number_by_commit_index_iterator(
                 line_number,
-                current_index..new_index,
+                old_index..new_index,
                 LineNumberMap::new_old_from_new,
             ),
             cmp::Ordering::Equal => unreachable!("new and current should not be equal"),
         };
         debug!(
-            "map_line_number_by_indexes: {line_number}@{current_index} \
+            "map_line_number_by_indexes: {line_number}@{old_index} \
             -> {new_line_number}@{new_index}"
         );
         new_line_number
     }
 
-    fn map_line_number_by_index_iterator(
+    fn map_line_number_by_commit_index_iterator(
         &self,
         line_number: usize,
         indexes: impl Iterator<Item = usize>,

@@ -229,9 +229,9 @@ impl FileContent {
         // Saturate `end`, as it may be set to `MAX`.
         let new_line_numbers =
             new_line_numbers.start..cmp::min(new_line_numbers.end, self.lines_len() + 1);
-        let mut line_index = self.line_index_from_number(new_line_numbers.start);
+        let line_index = self.line_index_from_number(new_line_numbers.start);
         trace!("apply: index={line_index} for {new_line_numbers:?}");
-        while line_index < self.lines_len() {
+        for line_index in line_index..self.lines_len() {
             let line = &mut self.lines[line_index];
             // trace!("apply: [{line_index}]={} {:?}", line.line_number(), line.commit_id());
             if line.line_number() >= new_line_numbers.end {
@@ -240,7 +240,6 @@ impl FileContent {
             if line.commit_id().is_none() {
                 line.set_commit_id(commit_id);
             }
-            line_index += 1;
         }
 
         Ok(())

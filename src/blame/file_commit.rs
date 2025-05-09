@@ -13,7 +13,7 @@ pub struct FileCommit {
     index: usize,
     time: git2::Time,
     summary: Option<String>,
-    author: Option<String>,
+    author_email: Option<String>,
     old_path: Option<PathBuf>,
     diff_parts: Vec<DiffPart>,
 }
@@ -26,7 +26,7 @@ impl FileCommit {
             index: 0,
             time: git2::Time::new(0, 0),
             summary: None,
-            author: None,
+            author_email: None,
             old_path: None,
             diff_parts: Vec::new(),
         }
@@ -52,8 +52,8 @@ impl FileCommit {
         self.summary.as_ref()
     }
 
-    pub fn author(&self) -> Option<&String> {
-        self.author.as_ref()
+    pub fn author_email(&self) -> Option<&String> {
+        self.author_email.as_ref()
     }
 
     pub fn path(&self) -> &Path {
@@ -79,7 +79,7 @@ impl FileCommit {
         let commit = git.repository().find_commit(commit_id)?;
         self.time = commit.time();
         self.summary = commit.summary().map(|s| s.to_string());
-        self.author = commit.author().email().map(|s| s.to_string());
+        self.author_email = commit.author().email().map(|s| s.to_string());
 
         let parent = commit.parent(0);
         if parent.is_err() {

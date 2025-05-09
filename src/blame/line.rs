@@ -97,7 +97,7 @@ impl Line {
                     .summary()
                     .map_or(String::new(), |s| format!("  {}", s)),
                 2 => commit
-                    .author()
+                    .author_email()
                     .map_or(String::new(), |s| format!("  {}", s)),
                 3 => format!("  {}", commit.commit_id()),
                 _ => String::new(),
