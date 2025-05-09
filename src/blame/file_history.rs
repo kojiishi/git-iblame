@@ -181,11 +181,12 @@ impl FileHistory {
     ) -> anyhow::Result<()> {
         let mut commits = CommitIterator::new(path, repository_path);
         commits.start()?;
+        let git = GitTools::from_repository_path(repository_path)?;
         let mut path = path.to_path_buf();
         for commit_id in &mut commits {
             trace!("Commit ID: {:?}, Path: {:?}", commit_id, path);
             let mut diff = FileCommit::new(commit_id, &path);
-            diff.read(repository_path)?;
+            diff.read(&git)?;
             if let Some(old_path) = diff.old_path() {
                 if path != old_path {
                     debug!("read_thread: rename detected {:?} -> {:?}", old_path, path);

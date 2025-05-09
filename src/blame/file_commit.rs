@@ -68,13 +68,12 @@ impl FileCommit {
         &self.diff_parts
     }
 
-    pub fn read(&mut self, repository_path: &Path) -> anyhow::Result<()> {
+    pub fn read(&mut self, git: &GitTools) -> anyhow::Result<()> {
         let path = self.path.as_path();
         trace!("read diff for commit_id: {:?} {path:?}", self.commit_id);
         assert!(path.is_relative());
         assert!(self.diff_parts.is_empty());
         let start_time = std::time::Instant::now();
-        let git = GitTools::from_repository_path(repository_path)?;
         let commit_id = self.commit_id;
         trace!("commit_id: {commit_id}");
         let commit = git.repository().find_commit(commit_id)?;
