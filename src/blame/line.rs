@@ -12,6 +12,7 @@ pub struct Line {
     content: String,
     commit_id: Option<git2::Oid>,
     index_in_hunk: usize,
+    is_deleted: bool,
     is_last_line_in_hunk: bool,
 }
 
@@ -20,6 +21,16 @@ impl Line {
         Self {
             line_number,
             content,
+            ..Default::default()
+        }
+    }
+
+    pub fn new_deleted(line_number: usize, commit_id: git2::Oid) -> Self {
+        Self {
+            line_number,
+            // content: "#deleted#".to_string(),
+            commit_id: Some(commit_id),
+            is_deleted: true,
             ..Default::default()
         }
     }
@@ -59,16 +70,15 @@ impl Line {
     pub fn render(
         &self,
         out: &mut impl Write,
-        current_line_number: usize,
         history: &FileHistory,
+        is_current_line: bool,
         max_columns: usize,
     ) -> anyhow::Result<()> {
         let mut should_reset = false;
-        if self.line_number == current_line_number {
+        if is_current_line {
             queue!(
                 out,
-                style::SetForegroundColor(style::Color::Black),
-                style::SetBackgroundColor(style::Color::Cyan)
+                style::SetColors(style::Colors::new(style::Color::Black, style::Color::Cyan)),
             )?;
             should_reset = true;
         }
@@ -86,7 +96,7 @@ impl Line {
                     commit.index(),
                     commit.time().to_local_date_time().map_or_else(
                         |e| format!("Invalid date/time: {e}"),
-                        |datetime| datetime.format("%Y-%m-%d %H:%M %Z").to_string(),
+                        |datetime| datetime.format("%Y-%m-%d %H:%M").to_string(),
                     )
                 ),
                 1 => commit
@@ -101,7 +111,11 @@ impl Line {
         } else {
             "...".to_string()
         };
-        let left_pane = format!("{number:4}:{blame:25.25}|", number = self.line_number);
+        let left_pane = if self.is_deleted {
+            format!("    :{blame:25.25}|")
+        } else {
+            format!("{number:4}:{blame:25.25}|", number = self.line_number)
+        };
         let left_pane_len = left_pane.len();
         queue!(out, style::Print(left_pane))?;
 
@@ -114,12 +128,22 @@ impl Line {
         }
 
         let max_main_pane = max_columns.saturating_sub(left_pane_len);
-        let mut content = self.content.as_str();
-        content = match content.char_indices().nth(max_main_pane) {
-            None => content,
-            Some((idx, _)) => &content[..idx],
-        };
-        queue!(out, style::Print(content))?;
+        if self.is_deleted {
+            let content = "##deleted##";
+            queue!(
+                out,
+                style::SetForegroundColor(style::Color::DarkGrey),
+                style::Print(content),
+                style::ResetColor,
+            )?;
+        } else {
+            let mut content = self.content.as_str();
+            content = match content.char_indices().nth(max_main_pane) {
+                None => content,
+                Some((idx, _)) => &content[..idx],
+            };
+            queue!(out, style::Print(content))?;
+        }
 
         Ok(())
     }

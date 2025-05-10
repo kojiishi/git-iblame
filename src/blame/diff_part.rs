@@ -5,7 +5,7 @@ use std::{
 
 use anyhow::bail;
 
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[derive(Clone, Default, Eq, PartialEq)]
 pub struct DiffPart {
     pub old: DiffRange,
     pub new: DiffRange,
@@ -49,6 +49,12 @@ impl DiffPart {
             last_new = part.new.line_numbers.end;
         }
         Ok(())
+    }
+}
+
+impl fmt::Debug for DiffPart {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_fmt(format_args!("{:?}->{:?}", self.old, self.new))
     }
 }
 

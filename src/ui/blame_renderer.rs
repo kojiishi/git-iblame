@@ -180,6 +180,7 @@ impl BlameRenderer {
         if self.history_mut().read_poll()? {
             self.content.update_commits(&self.history)?;
             self.invalidate_render();
+            self.scroll_current_line_into_view();
         }
         Ok(())
     }
@@ -310,13 +311,20 @@ impl BlameRenderer {
             .iter()
             .take(line_index_range.end)
             .skip(line_index_range.start);
-        self.render_lines(out, start_row as u16, should_clear_lines, lines)
+        self.render_lines(
+            out,
+            start_row as u16,
+            line_index_range.start,
+            should_clear_lines,
+            lines,
+        )
     }
 
     fn render_lines<'a, Iter>(
         &self,
         out: &mut impl Write,
         start_row: u16,
+        start_line_index: usize,
         should_clear_lines: bool,
         lines: Iter,
     ) -> anyhow::Result<u16>
@@ -324,7 +332,8 @@ impl BlameRenderer {
         Iter: Iterator<Item = &'a Line>,
     {
         let mut row = start_row;
-        let current_line_number = self.current_line_number();
+        let current_line_index = self.current_line_index();
+        let mut line_index = start_line_index;
         for line in lines {
             queue!(out, cursor::MoveTo(0, row))?;
             if should_clear_lines {
@@ -332,11 +341,12 @@ impl BlameRenderer {
             }
             line.render(
                 out,
-                current_line_number,
                 self.history(),
+                line_index == current_line_index,
                 self.view_cols() as usize,
             )?;
             row += 1;
+            line_index += 1;
         }
         Ok(row)
     }

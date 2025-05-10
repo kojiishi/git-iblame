@@ -24,6 +24,7 @@ Features:
 * Moving the cursor to the line of your interests.
 * Traversing to older or newer trees of the line interactively.
 * Seeing the commit or the diff of the line at any trees.
+* Seeing and traversing to commits that deleted lines.
 
 The `git-iblame` is built for speed.
 Computing all the history of a file is an expensive task,
