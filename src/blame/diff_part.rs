@@ -5,13 +5,21 @@ use std::{
 
 use anyhow::bail;
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct DiffPart {
     pub old: DiffRange,
     pub new: DiffRange,
 }
 
 impl DiffPart {
+    #[cfg(test)]
+    pub fn from_ranges(old: Range<usize>, new: Range<usize>) -> Self {
+        Self {
+            old: DiffRange::from_range(old),
+            new: DiffRange::from_range(new),
+        }
+    }
+
     pub fn is_empty(&self) -> bool {
         self.old.is_empty() && self.new.is_empty()
     }
@@ -44,7 +52,7 @@ impl DiffPart {
     }
 }
 
-#[derive(Clone, Default)]
+#[derive(Clone, Default, Eq, PartialEq)]
 pub struct DiffRange {
     pub line_numbers: Range<usize>,
 }
@@ -56,6 +64,11 @@ impl fmt::Debug for DiffRange {
 }
 
 impl DiffRange {
+    #[cfg(test)]
+    pub fn from_range(line_numbers: Range<usize>) -> Self {
+        Self { line_numbers }
+    }
+
     pub fn is_empty(&self) -> bool {
         self.line_numbers.is_empty()
     }

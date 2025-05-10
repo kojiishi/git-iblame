@@ -216,7 +216,44 @@ impl DiffReadContext {
 
 #[cfg(test)]
 mod tests {
+    use crate::tests::TempRepository;
+
     use super::*;
+
+    #[test]
+    fn git_add_del() -> anyhow::Result<()> {
+        let git = TempRepository::new()?;
+        let path = Path::new("text.txt");
+        git.add_file_content(path, "1\n2\n3\n4\n5\n")?;
+        let commit_id1 = git.commit(git2::Oid::zero(), "Add file")?;
+
+        git.add_file_content(path, "1\n2\nX\nY\nZ\n4\n5\n")?;
+        let commit_id2 = git.commit(commit_id1, "Rename file")?;
+
+        let mut file_commit = FileCommit::new(commit_id2, path);
+        file_commit.read(&git.git)?;
+        assert_eq!(file_commit.diff_parts, [DiffPart::from_ranges(3..4, 3..6),]);
+        assert_eq!(file_commit.old_path(), Some(path));
+        Ok(())
+    }
+
+    #[test]
+    fn git_rename() -> anyhow::Result<()> {
+        let git = TempRepository::new()?;
+        let old_path = Path::new("old.txt");
+        let new_path = Path::new("new.txt");
+        git.add_file_content(old_path, "content")?;
+        let commit_id1 = git.commit(git2::Oid::zero(), "Add file")?;
+
+        git.rename_file(old_path, new_path)?;
+        let commit_id2 = git.commit(commit_id1, "Rename file")?;
+
+        let mut file_commit = FileCommit::new(commit_id2, new_path);
+        file_commit.read(&git.git)?;
+        assert_eq!(file_commit.old_path(), Some(old_path));
+        assert!(file_commit.diff_parts.is_empty());
+        Ok(())
+    }
 
     #[test]
     fn context_add() {
@@ -231,11 +268,13 @@ mod tests {
         context.on_line_callback(git2::DiffLineType::Addition, None, Some(9), 1);
         context.on_line_callback(git2::DiffLineType::Context, Some(7), Some(10), 1);
         context.flush_part();
-        assert_eq!(context.parts.len(), 2);
-        assert_eq!(context.parts[0].old.line_numbers, 5..5);
-        assert_eq!(context.parts[0].new.line_numbers, 5..7);
-        assert_eq!(context.parts[1].old.line_numbers, 7..7);
-        assert_eq!(context.parts[1].new.line_numbers, 9..10);
+        assert_eq!(
+            context.parts,
+            [
+                DiffPart::from_ranges(5..5, 5..7),
+                DiffPart::from_ranges(7..7, 9..10),
+            ]
+        );
     }
 
     #[test]
@@ -249,10 +288,12 @@ mod tests {
         context.on_line_callback(git2::DiffLineType::Context, Some(6), Some(8), 1);
         context.on_line_callback(git2::DiffLineType::Deletion, Some(7), None, 1);
         context.flush_part();
-        assert_eq!(context.parts.len(), 2);
-        assert_eq!(context.parts[0].old.line_numbers, 4..6);
-        assert_eq!(context.parts[0].new.line_numbers, 4..4);
-        assert_eq!(context.parts[1].old.line_numbers, 7..8);
-        assert_eq!(context.parts[1].new.line_numbers, 9..9);
+        assert_eq!(
+            context.parts,
+            [
+                DiffPart::from_ranges(4..6, 4..4),
+                DiffPart::from_ranges(7..8, 9..9),
+            ]
+        );
     }
 }

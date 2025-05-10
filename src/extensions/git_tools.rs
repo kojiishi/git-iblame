@@ -1,11 +1,10 @@
 use std::path::{Path, PathBuf};
 
 use anyhow::*;
-use git2::{Oid, Repository, RepositoryOpenFlags};
 use log::*;
 
 pub struct GitTools {
-    repository: Repository,
+    repository: git2::Repository,
     workdir_path: PathBuf,
 }
 
@@ -15,9 +14,9 @@ impl GitTools {
     /// of the repository.
     /// See <https://libgit2.org/docs/reference/main/repository/git_repository_open_ext.html>.
     pub fn from_file_path(path: &Path) -> anyhow::Result<Self> {
-        let repository = Repository::open_ext(
+        let repository = git2::Repository::open_ext(
             path,
-            RepositoryOpenFlags::empty(),
+            git2::RepositoryOpenFlags::empty(),
             &[] as &[&std::ffi::OsStr],
         )?;
         Self::from_repository(repository)
@@ -27,11 +26,11 @@ impl GitTools {
     /// existing work dir.
     /// See <https://libgit2.org/docs/reference/main/repository/git_repository_open.html>.
     pub fn from_repository_path(repository_path: &Path) -> anyhow::Result<Self> {
-        let repository = Repository::open(repository_path)?;
+        let repository = git2::Repository::open(repository_path)?;
         Self::from_repository(repository)
     }
 
-    fn from_repository(repository: Repository) -> anyhow::Result<Self> {
+    fn from_repository(repository: git2::Repository) -> anyhow::Result<Self> {
         let git_path = repository.path().canonicalize()?;
         let workdir_path = git_path.parent().unwrap();
         Ok(Self {
@@ -41,7 +40,7 @@ impl GitTools {
     }
 
     /// Get `git2::Repository`.
-    pub fn repository(&self) -> &Repository {
+    pub fn repository(&self) -> &git2::Repository {
         &self.repository
     }
 
@@ -73,7 +72,7 @@ impl GitTools {
         path.to_path_buf()
     }
 
-    pub fn head_commit_id(&self) -> anyhow::Result<Oid> {
+    pub fn head_commit_id(&self) -> anyhow::Result<git2::Oid> {
         let head = self.repository.head()?;
         let commit = head.peel_to_commit()?;
         Ok(commit.id())
@@ -81,7 +80,7 @@ impl GitTools {
 
     /// Get the content of a `path` at the tree of the `commit_id` as a string.
     /// If `commit_id` is zero, the `head` is used.
-    pub fn content_as_string(&self, commit_id: Oid, path: &Path) -> anyhow::Result<String> {
+    pub fn content_as_string(&self, commit_id: git2::Oid, path: &Path) -> anyhow::Result<String> {
         let commit = if commit_id.is_zero() {
             self.repository.head()?.peel_to_commit()?
         } else {
@@ -95,7 +94,7 @@ impl GitTools {
         Ok(std::str::from_utf8(blob.content())?.to_string())
     }
 
-    pub fn show(&self, commit_id: Oid, path: Option<&Path>) -> anyhow::Result<()> {
+    pub fn show(&self, commit_id: git2::Oid, path: Option<&Path>) -> anyhow::Result<()> {
         debug!("git-show: {commit_id} {path:?}");
         let mut command = std::process::Command::new("git");
         command.current_dir(self.repository_path());
@@ -125,7 +124,7 @@ pub(crate) mod tests {
     impl TempRepository {
         pub fn new() -> anyhow::Result<Self> {
             let dir = tempfile::TempDir::new()?;
-            let repository = Repository::init(dir.path())?;
+            let repository = git2::Repository::init(dir.path())?;
             let mut config = repository.config()?;
             config.set_str("user.name", "Test User")?;
             config.set_str("user.email", "test@test.com")?;
@@ -135,7 +134,7 @@ pub(crate) mod tests {
             })
         }
 
-        pub fn repository(&self) -> &Repository {
+        pub fn repository(&self) -> &git2::Repository {
             self.git.repository()
         }
 
@@ -143,31 +142,69 @@ pub(crate) mod tests {
             self.git.workdir_path()
         }
 
-        pub fn commit_file(&self, path: &Path, content: &str) -> anyhow::Result<()> {
-            let file_path = self.worktree_path().join(path);
+        pub fn to_file_path(&self, path: &Path) -> PathBuf {
+            assert!(path.is_relative());
+            self.worktree_path().join(path)
+        }
+
+        pub fn add_file_content(&self, path: &Path, content: &str) -> anyhow::Result<()> {
+            let file_path = self.to_file_path(path);
             std::fs::create_dir_all(file_path.parent().unwrap())?;
             std::fs::write(&file_path, content)?;
 
             let mut index = self.repository().index()?;
             index.add_path(path)?;
             index.write()?;
+            Ok(())
+        }
 
+        pub fn rename_file(&self, old_path: &Path, new_path: &Path) -> anyhow::Result<()> {
+            let old_file_path = self.to_file_path(old_path);
+            let new_file_path = self.to_file_path(new_path);
+            std::fs::create_dir_all(new_file_path.parent().unwrap())?;
+            std::fs::rename(old_file_path, new_file_path)?;
+
+            let mut index = self.repository().index()?;
+            index.remove_path(old_path)?;
+            index.add_path(new_path)?;
+            index.write()?;
+            Ok(())
+        }
+
+        pub fn commit(
+            &self,
+            parent_commit_id: git2::Oid,
+            message: &str,
+        ) -> anyhow::Result<git2::Oid> {
+            let mut index = self.repository().index()?;
             let signature = self.git.repository.signature()?;
             let tree_id = index.write_tree()?;
             let tree = self.git.repository.find_tree(tree_id)?;
-            let commit_id = self.git.repository.commit(
-                Some("HEAD"),
-                &signature,
-                &signature,
-                "Add file",
-                &tree,
-                &[],
-            )?;
+            let commit_id = if parent_commit_id.is_zero() {
+                self.git.repository.commit(
+                    Some("HEAD"),
+                    &signature,
+                    &signature,
+                    message,
+                    &tree,
+                    &[],
+                )?
+            } else {
+                let parent_commit = self.repository().find_commit(parent_commit_id)?;
+                self.git.repository.commit(
+                    Some("HEAD"),
+                    &signature,
+                    &signature,
+                    message,
+                    &tree,
+                    &[&parent_commit],
+                )?
+            };
             assert_eq!(
                 commit_id,
                 self.git.repository.head()?.peel_to_commit()?.id()
             );
-            Ok(())
+            Ok(commit_id)
         }
     }
 
@@ -176,8 +213,12 @@ pub(crate) mod tests {
         let git = TempRepository::new()?;
         let path = PathBuf::from("test.txt");
         let content = "Hello, world!";
-        git.commit_file(&path, content)?;
-        assert_eq!(git.git.content_as_string(Oid::zero(), &path)?, content);
+        git.add_file_content(&path, content)?;
+        git.commit(git2::Oid::zero(), "Add file")?;
+        assert_eq!(
+            git.git.content_as_string(git2::Oid::zero(), &path)?,
+            content
+        );
         Ok(())
     }
 }
