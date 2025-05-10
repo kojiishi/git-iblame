@@ -36,10 +36,18 @@ impl FileContent {
 
     pub fn line_index_from_number(&self, line_number: usize) -> usize {
         assert!(line_number > 0);
-        self.lines
+        assert!(line_number <= self.lines.last().unwrap().line_number());
+        let start_index = line_number - 1;
+        if self.lines[start_index].line_number() == line_number {
+            return start_index;
+        }
+        let lines = &self.lines[start_index..];
+        assert!(line_number >= lines.first().unwrap().line_number());
+        lines
             .iter()
             .position(|line| line.line_number() == line_number)
-            .unwrap_or(0)
+            .unwrap()
+            + start_index
     }
 
     pub fn commit_id(&self) -> git2::Oid {
