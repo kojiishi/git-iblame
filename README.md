@@ -11,9 +11,10 @@
 
 # git-iblame
 
-An enhanced [`git blame`] command line tool.
+An interactive enhanced [`git blame`] command line tool.
 
-The `git-iblame` allows you to find changes to the lines of your interests,
+The `git-iblame` allows you to find
+changes to the lines of your interests interactively,
 not only the last change as [`git blame`] can do,
 but also all the past changes,
 up to the initial commit.
@@ -27,23 +28,22 @@ Features:
 The `git-iblame` is built for speed.
 Computing all the history of a file is an expensive task,
 especially when the repository is large.
-The `git-iblame` can make it instant.
 
-To make the traversals of the history instant,
+To make the traversals of the large history responsive,
 the `git-iblame` has its own file history engine.
 This engine is built on top of the fundamental git operations
 provided by the [git2]/[libgit2],
 without using the logic in the [`git blame`].
 
-Also to make the traversals even more comfortable,
-the engine runs in background.
+The engine runs in background to make `git-iblame` responsive.
 Old annotations which takes time to read from the disk
 come up incrementally while you are browsing.
 
-Re-computing the hisotry annotations for different trees is also instant.
-The `git-iblame` can compute the history for different trees instantly
+When browsing older or newer trees, the `git-iblame`'s engine
+can re-compute the history for the trees instantly
 from its own data structure in memory,
-unlike the [`git blame`] which needs to read from the disk each time it is ran.
+unlike the [`git blame`] which
+reads the data from the disk each time it is ran.
 
 [`git blame`]: https://git-scm.com/docs/git-blame
 [git2]: https://docs.rs/git2/latest/git2/
