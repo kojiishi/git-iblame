@@ -60,17 +60,9 @@ impl FileCommit {
         &self.path
     }
 
-    pub fn old_path(&self) -> Option<&Path> {
+    /// The old path before rename if this is a rename, `None` otherwise.
+    pub fn old_path_if_rename(&self) -> Option<&Path> {
         self.old_path.as_deref()
-    }
-
-    pub fn is_renamed(&self) -> bool {
-        if let Some(old_path) = self.old_path() {
-            if self.path() != old_path {
-                return true;
-            }
-        }
-        false
     }
 
     pub fn diff_parts(&self) -> &Vec<DiffPart> {
@@ -128,7 +120,11 @@ impl FileCommit {
                     return true;
                 }
                 trace!("file: {delta:?}");
-                old_path = delta.old_file().path().map(|p| p.to_path_buf());
+                if let Some(delta_old_path) = delta.old_file().path() {
+                    if delta_old_path != path {
+                        old_path = Some(delta_old_path.to_path_buf());
+                    }
+                }
                 true
             },
             None,
@@ -163,7 +159,11 @@ impl FileCommit {
         )?;
         context.flush_part();
 
-        self.old_path = old_path;
+        if let Some(old_path) = old_path {
+            if old_path != self.path() {
+                self.old_path = Some(old_path);
+            }
+        }
         self.diff_parts = context.parts;
         DiffPart::validate_ascending_parts(&self.diff_parts).unwrap();
         trace!(
@@ -266,8 +266,7 @@ mod tests {
         let mut file_commit = FileCommit::new(commit_id2, path);
         file_commit.read(&git.git)?;
         assert_eq!(file_commit.diff_parts, [DiffPart::from_ranges(3..4, 3..6),]);
-        assert!(!file_commit.is_renamed());
-        assert_eq!(file_commit.old_path(), Some(path));
+        assert_eq!(file_commit.old_path_if_rename(), None);
         Ok(())
     }
 
@@ -284,8 +283,7 @@ mod tests {
 
         let mut file_commit = FileCommit::new(commit_id2, new_path);
         file_commit.read(&git.git)?;
-        assert!(file_commit.is_renamed());
-        assert_eq!(file_commit.old_path(), Some(old_path));
+        assert_eq!(file_commit.old_path_if_rename(), Some(old_path));
         assert!(file_commit.diff_parts.is_empty());
         Ok(())
     }
