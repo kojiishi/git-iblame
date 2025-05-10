@@ -100,7 +100,9 @@ impl FileCommit {
             Some(&tree),
             Some(&mut diff_options),
         )?;
-        diff.find_similar(None)?;
+        let mut diff_find_options = git2::DiffFindOptions::new();
+        diff_find_options.renames(true);
+        diff.find_similar(Some(&mut diff_find_options))?;
 
         let mut old_path: Option<PathBuf> = None;
         let mut context = DiffReadContext::default();
