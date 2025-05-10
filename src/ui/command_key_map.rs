@@ -137,6 +137,8 @@ impl CommandKeyMap {
 
             ((KeyCode::Char('N'), KeyModifiers::SHIFT), Command::SearchPrev),
             ((KeyCode::Char('n'), KeyModifiers::NONE), Command::SearchNext),
+
+            ((KeyCode::Char('z'), KeyModifiers::NONE), Command::Debug),
         ]
     }
 

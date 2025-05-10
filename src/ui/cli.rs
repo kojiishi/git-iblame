@@ -6,6 +6,7 @@ use std::{
 
 use crossterm::{clipboard::CopyToClipboard, cursor, execute, style, terminal};
 use git2::Oid;
+use log::debug;
 
 use crate::*;
 
@@ -156,6 +157,11 @@ impl Cli {
             Command::Timeout => renderer.read_poll()?,
             Command::Repaint => renderer.invalidate_render(),
             Command::Resize(columns, rows) => renderer.set_view_size((columns, rows - 1)),
+            Command::Debug => {
+                let commit_id = renderer.current_line_commit_id()?;
+                let commit = renderer.history().commits().get_by_commit_id(commit_id)?;
+                debug!("debug_current_line: {commit:?}");
+            }
             Command::Quit => {}
         }
         Ok(())

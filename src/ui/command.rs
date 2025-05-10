@@ -20,4 +20,5 @@ pub enum Command {
     Help,
     Quit,
     Timeout,
+    Debug,
 }
