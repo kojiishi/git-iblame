@@ -42,7 +42,8 @@ impl FileContent {
         assert!(line_number > 0);
         assert!(line_number <= self.last_line_number());
         let mut start_index = line_number - 1;
-        if self.lines[start_index].line_number() == line_number {
+        let start_line = &self.lines[start_index];
+        if start_line.line_number() == line_number {
             return start_index;
         }
         start_index += 1;
@@ -245,14 +246,27 @@ impl FileContent {
     fn apply_diff_part(&mut self, part: &DiffPart, commit: &FileCommit) -> anyhow::Result<()> {
         let commit_id = commit.commit_id();
         let new_line_numbers = part.new.line_numbers();
-        trace!("apply: #{} {new_line_numbers:?}", commit.index());
+        trace!("apply: #{} {part:?}", commit.index());
         if new_line_numbers.is_empty() {
-            return Ok(()); // TODO: handle empty hunk
+            // This part is deleted. Insert a marker to make it visible.
+            assert!(new_line_numbers.start > 0);
+            let old_line_numbers = &part.old.line_numbers;
+            assert!(old_line_numbers.start > 0);
+            if old_line_numbers.is_empty() {
+                return Ok(()); // Line number mapping may have created this.
+            }
+            let line = Line::new_deleted(new_line_numbers.start, commit_id);
+            let line_index = self.line_index_from_number(new_line_numbers.start);
+            self.lines.insert(line_index, line);
+            if self.current_line_index >= line_index {
+                self.current_line_index += 1;
+            }
+            return Ok(());
         }
 
         // Saturate `end`, as it may be set to `MAX`.
         let new_line_numbers =
-            new_line_numbers.start..cmp::min(new_line_numbers.end, self.lines_len() + 1);
+            new_line_numbers.start..cmp::min(new_line_numbers.end, self.last_line_number() + 1);
         let line_index = self.line_index_from_number(new_line_numbers.start);
         trace!("apply: index={line_index} for {new_line_numbers:?}");
         for line_index in line_index..self.lines_len() {
