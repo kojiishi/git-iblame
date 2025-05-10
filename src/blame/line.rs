@@ -40,10 +40,6 @@ impl Line {
         self.commit_id = Some(commit_id);
     }
 
-    pub fn clear_commit_id(&mut self) {
-        self.commit_id = None;
-    }
-
     pub fn set_index_in_hunk(&mut self, index_in_hunk: usize) {
         self.index_in_hunk = index_in_hunk;
     }

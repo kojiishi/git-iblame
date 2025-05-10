@@ -217,11 +217,19 @@ impl FileHistory {
                     count += 1;
                 }
                 Err(mpsc::TryRecvError::Empty) => {
-                    trace!(
-                        "read_poll: {count} items, total {} items, {:?}",
-                        self.commits.len(),
-                        start_time.elapsed()
-                    );
+                    if count > 0 {
+                        debug!(
+                            "read_poll: {count} items, total {} items, {:?}",
+                            self.commits.len(),
+                            start_time.elapsed()
+                        );
+                    } else {
+                        trace!(
+                            "read_poll: 0 items, total {} items, {:?}",
+                            self.commits.len(),
+                            start_time.elapsed()
+                        );
+                    }
                     break;
                 }
                 Err(mpsc::TryRecvError::Disconnected) => {
@@ -253,7 +261,7 @@ impl FileHistory {
         }
         content.read(self.git())?;
         if !self.commits.is_empty() {
-            content.reapply(self)?;
+            content.update_commits(self)?;
         }
         Ok(content)
     }

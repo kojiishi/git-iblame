@@ -15,6 +15,7 @@ pub struct FileContent {
     path: PathBuf,
     lines: Vec<Line>,
     current_line_index: usize,
+    applied_commits_len: usize,
 }
 
 impl FileContent {
@@ -24,6 +25,7 @@ impl FileContent {
             path: path.to_path_buf(),
             lines: vec![],
             current_line_index: 0,
+            applied_commits_len: 0,
         }
     }
 
@@ -167,28 +169,34 @@ impl FileContent {
         self.read_lines(lines);
     }
 
-    pub fn reapply(&mut self, history: &FileHistory) -> anyhow::Result<()> {
-        assert!(!history.commits().is_empty());
+    pub fn update_commits(&mut self, history: &FileHistory) -> anyhow::Result<()> {
+        debug!(
+            "update_commits: applied={}, #={}",
+            self.applied_commits_len,
+            history.commits().len()
+        );
+        assert!(history.commits().len() > self.applied_commits_len);
         let start_time = std::time::Instant::now();
-        for line in self.lines.iter_mut() {
-            line.clear_commit_id();
-        }
 
-        let self_commit_index = if self.commit_id().is_zero() {
+        if self.commit_id().is_zero() {
             self.commit_id = history.commit(0).commit_id();
-            0
-        } else {
-            history.commit_index_from_commit_id(self.commit_id())?
-        };
-        debug!("reapply {self_commit_index} {}", self.commit_id());
-        self.apply_diffs(history, self_commit_index)?;
-        self.update_after_apply();
-        trace!("reapply done, elapsed: {:?}", start_time.elapsed());
+        }
+        assert!(!self.commit_id().is_zero());
+
+        let mut first_index = self.applied_commits_len;
+        if first_index == 0 {
+            first_index = history.commit_index_from_commit_id(self.commit_id())?;
+        }
+        self.apply_commits(first_index, history)?;
+        self.update_lines_after_apply();
+        self.applied_commits_len = history.commits().len();
+        trace!("update_commits done, elapsed: {:?}", start_time.elapsed());
         Ok(())
     }
 
-    fn apply_diffs(&mut self, history: &FileHistory, first_index: usize) -> anyhow::Result<()> {
+    fn apply_commits(&mut self, first_index: usize, history: &FileHistory) -> anyhow::Result<()> {
         let all_commits = history.commits();
+        debug!("apply_commits: {first_index}..{}", all_commits.len());
         let commits = &all_commits[first_index..];
         for i in 0..commits.len() {
             let commit = &commits[i];
@@ -245,7 +253,7 @@ impl FileContent {
         Ok(())
     }
 
-    fn update_after_apply(&mut self) {
+    fn update_lines_after_apply(&mut self) {
         let mut last_line: Option<&mut Line> = None;
         let mut last_commit_id: Option<git2::Oid> = None;
         let mut index_in_hunk = 0;

@@ -178,7 +178,7 @@ impl BlameRenderer {
 
     pub fn read_poll(&mut self) -> anyhow::Result<()> {
         if self.history_mut().read_poll()? {
-            self.content.reapply(&self.history)?;
+            self.content.update_commits(&self.history)?;
             self.invalidate_render();
         }
         Ok(())
