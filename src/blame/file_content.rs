@@ -183,37 +183,42 @@ impl FileContent {
     }
 
     pub fn update_commits(&mut self, history: &FileHistory) -> anyhow::Result<()> {
+        let commits = history.commits();
         debug!(
             "update_commits: applied={}, #={}",
             self.applied_commits_len,
-            history.commits().len()
+            commits.len()
         );
-        assert!(history.commits().len() > self.applied_commits_len);
+        assert!(commits.len() > self.applied_commits_len);
         let start_time = std::time::Instant::now();
 
         if self.commit_id().is_zero() {
-            self.commit_id = history.commit(0).commit_id();
+            self.commit_id = commits[0].commit_id();
         }
         assert!(!self.commit_id().is_zero());
 
-        let mut first_index = self.applied_commits_len;
-        if first_index == 0 {
-            first_index = history.commit_index_from_commit_id(self.commit_id())?;
-        }
-        self.apply_commits(first_index, history)?;
+        let first_index = commits.index_from_commit_id(self.commit_id())?;
+        let skip = self.applied_commits_len.saturating_sub(first_index);
+        debug!(
+            "apply_commits: {first_index}..{} skip={skip}",
+            commits.len()
+        );
+        self.apply_commits(&commits[first_index..], skip)?;
         self.update_lines_after_apply();
-        self.applied_commits_len = history.commits().len();
+        self.applied_commits_len = commits.len();
         trace!("update_commits done, elapsed: {:?}", start_time.elapsed());
         Ok(())
     }
 
-    fn apply_commits(&mut self, first_index: usize, history: &FileHistory) -> anyhow::Result<()> {
-        let all_commits = history.commits();
-        debug!("apply_commits: {first_index}..{}", all_commits.len());
-        let commits = &all_commits[first_index..];
-        for i in 0..commits.len() {
+    fn apply_commits(&mut self, commits: &[FileCommit], skip: usize) -> anyhow::Result<()> {
+        for i in skip..commits.len() {
             let commit = &commits[i];
-            if i > 0 {
+            if i == 0 {
+                self.apply_diff_parts(commit.diff_parts(), commit)?;
+            } else {
+                // If i > 0, the line numbers in `commit.diff_parts().new`
+                // aren't the line numbers in `self.lines`. Map them to the line
+                // numbers of `self.lines`.
                 let mut adjusted_parts = commit.diff_parts().clone();
                 for j in (0..i).rev() {
                     let parts = &commits[j].diff_parts();
@@ -221,8 +226,6 @@ impl FileContent {
                     map.apply_to_parts(&mut adjusted_parts);
                 }
                 self.apply_diff_parts(&adjusted_parts, commit)?;
-            } else {
-                self.apply_diff_parts(commit.diff_parts(), commit)?;
             }
         }
         Ok(())

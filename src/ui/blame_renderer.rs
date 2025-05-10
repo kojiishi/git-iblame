@@ -198,7 +198,7 @@ impl BlameRenderer {
 
     pub fn set_commit_id_to_older_than_current_line(&mut self) -> anyhow::Result<()> {
         let commit_id = self.current_line_commit_id()?;
-        let commit_index = self.history.commit_index_from_commit_id(commit_id)?;
+        let commit_index = self.history.commits().index_from_commit_id(commit_id)?;
         let parent_commit_index = commit_index + 1;
         if parent_commit_index >= self.history.commits().len() {
             bail!("No commits before {commit_id}");
@@ -213,7 +213,7 @@ impl BlameRenderer {
         self.git().show(
             commit_id,
             if current_file_only {
-                let commit = self.history.commit_from_commit_id(commit_id)?;
+                let commit = self.history.commits().get_by_commit_id(commit_id)?;
                 Some(commit.path())
             } else {
                 None

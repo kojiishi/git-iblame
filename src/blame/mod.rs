@@ -1,6 +1,9 @@
 mod commit_iterator;
 pub use commit_iterator::*;
 
+mod file_commits;
+pub use file_commits::*;
+
 mod diff_part;
 pub use diff_part::*;
 
