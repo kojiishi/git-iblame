@@ -34,12 +34,25 @@ impl FileContent {
         Self::new(git2::Oid::zero(), Path::new(""))
     }
 
+    fn last_line_number(&self) -> usize {
+        self.lines.last().unwrap().line_number()
+    }
+
     pub fn line_index_from_number(&self, line_number: usize) -> usize {
         assert!(line_number > 0);
-        self.lines
+        assert!(line_number <= self.last_line_number());
+        let mut start_index = line_number - 1;
+        if self.lines[start_index].line_number() == line_number {
+            return start_index;
+        }
+        start_index += 1;
+        let lines = &self.lines[start_index..];
+        assert!(line_number >= lines.first().unwrap().line_number());
+        lines
             .iter()
             .position(|line| line.line_number() == line_number)
-            .unwrap_or(0)
+            .unwrap()
+            + start_index
     }
 
     pub fn commit_id(&self) -> git2::Oid {
@@ -286,6 +299,22 @@ impl FileContent {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn line_index_from_number() {
+        let mut content = FileContent::new_for_test();
+        for i in 1..=10 {
+            content.lines.push(Line::new(i, i.to_string()));
+        }
+        assert_eq!(content.last_line_number(), 10);
+        assert_eq!(content.line_index_from_number(1), 0);
+        assert_eq!(content.line_index_from_number(10), 9);
+        content.lines.insert(5, Line::new(6, "6-2".to_string()));
+        assert_eq!(content.line_index_from_number(5), 4);
+        assert_eq!(content.line_index_from_number(6), 5);
+        assert_eq!(content.line_index_from_number(7), 7);
+        assert_eq!(content.line_index_from_number(10), 10);
+    }
 
     #[test]
     fn search() -> anyhow::Result<()> {
