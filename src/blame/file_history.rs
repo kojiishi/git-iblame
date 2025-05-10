@@ -1,6 +1,5 @@
 use std::{
     cmp,
-    collections::HashMap,
     path::{Path, PathBuf},
     sync::mpsc,
     thread,
@@ -10,13 +9,12 @@ use log::*;
 
 use crate::GitTools;
 
-use super::{CommitIterator, DiffPart, FileCommit, FileContent, LineNumberMap};
+use super::{CommitIterator, DiffPart, FileCommit, FileCommits, FileContent, LineNumberMap};
 
 pub struct FileHistory {
     path: PathBuf,
     git: Option<GitTools>,
-    commits: Vec<FileCommit>,
-    commit_index_from_commit_id: HashMap<git2::Oid, usize>,
+    commits: FileCommits,
     read_thread: Option<thread::JoinHandle<anyhow::Result<()>>>,
     rx: Option<mpsc::Receiver<FileCommit>>,
 }
@@ -26,8 +24,7 @@ impl FileHistory {
         Self {
             path: path.to_path_buf(),
             git: None,
-            commits: Vec::new(),
-            commit_index_from_commit_id: HashMap::new(),
+            commits: FileCommits::new(),
             read_thread: None,
             rx: None,
         }
@@ -60,40 +57,15 @@ impl FileHistory {
         Ok(())
     }
 
-    pub fn commits(&self) -> &Vec<FileCommit> {
+    /// Returns a reference to the underlying `FileCommits` collection.
+    ///
+    /// Consumers can use methods like `iter()`, `get_by_id()`, or index directly.
+    pub fn commits(&self) -> &FileCommits {
         &self.commits
     }
 
     pub fn commit(&self, index: usize) -> &FileCommit {
         &self.commits[index]
-    }
-
-    fn commit_index_from_commit_id_opt(&self, commit_id: git2::Oid) -> Option<usize> {
-        if commit_id.is_zero() {
-            if !self.commits.is_empty() {
-                return Some(0);
-            }
-            return None;
-        }
-        self.commit_index_from_commit_id.get(&commit_id).copied()
-    }
-
-    pub fn commit_index_from_commit_id(&self, commit_id: git2::Oid) -> anyhow::Result<usize> {
-        self.commit_index_from_commit_id_opt(commit_id)
-            .ok_or_else(|| anyhow::anyhow!("Commit {commit_id:?} not found"))
-    }
-
-    fn commit_from_commit_id_opt(&self, commit_id: git2::Oid) -> Option<&FileCommit> {
-        if commit_id.is_zero() {
-            return self.commits.first();
-        }
-        self.commit_index_from_commit_id_opt(commit_id)
-            .map(|index| &self.commits[index])
-    }
-
-    pub fn commit_from_commit_id(&self, commit_id: git2::Oid) -> anyhow::Result<&FileCommit> {
-        self.commit_from_commit_id_opt(commit_id)
-            .ok_or_else(|| anyhow::anyhow!("Commit {commit_id:?} not found"))
     }
 
     pub fn map_line_number_by_commit_ids(
@@ -103,8 +75,8 @@ impl FileHistory {
         old_commit_id: git2::Oid,
     ) -> anyhow::Result<usize> {
         assert!(old_commit_id != new_commit_id);
-        let current_index = self.commit_index_from_commit_id(old_commit_id)?;
-        let new_index = self.commit_index_from_commit_id(new_commit_id)?;
+        let current_index = self.commits.index_from_commit_id(old_commit_id)?;
+        let new_index = self.commits.index_from_commit_id(new_commit_id)?;
         Ok(self.map_line_number_by_commit_indexes(line_number, new_index, current_index))
     }
 
@@ -208,12 +180,8 @@ impl FileHistory {
         let mut count = 0;
         loop {
             match rx.try_recv() {
-                Ok(mut diff) => {
-                    let index = self.commits.len();
-                    diff.set_index(index);
-                    self.commit_index_from_commit_id
-                        .insert(diff.commit_id(), index);
-                    self.commits.push(diff);
+                Ok(commit_data) => {
+                    self.commits.push(commit_data);
                     count += 1;
                 }
                 Err(mpsc::TryRecvError::Empty) => {
@@ -252,7 +220,7 @@ impl FileHistory {
         let path = if commit_id.is_zero() {
             &self.path
         } else {
-            self.commit_from_commit_id(commit_id)?.path()
+            self.commits().get_by_commit_id(commit_id)?.path()
         };
         let mut content = FileContent::new(commit_id, path);
         // For testing, don't read if `path` is empty. See `new_for_test()`.
