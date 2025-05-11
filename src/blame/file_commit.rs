@@ -64,21 +64,27 @@ impl FileCommit {
         self.old_path.as_deref()
     }
 
+    pub fn is_renamed(&self) -> bool {
+        if let Some(old_path) = self.old_path() {
+            if self.path() != old_path {
+                return true;
+            }
+        }
+        false
+    }
+
     pub fn diff_parts(&self) -> &Vec<DiffPart> {
         &self.diff_parts
     }
 
     pub fn read(&mut self, git: &GitTools) -> anyhow::Result<()> {
-        let path = self.path.as_path();
-        trace!("read: {:?} {path:?}", self.commit_id);
-        assert!(path.is_relative());
+        trace!("read: {:?} {:?}", self.commit_id, self.path);
+        assert!(self.path.is_relative());
         assert!(self.diff_parts.is_empty());
         let start_time = std::time::Instant::now();
         let commit_id = self.commit_id;
         let commit = git.repository().find_commit(commit_id)?;
-        self.time = commit.time();
-        self.summary = commit.summary().map(|s| s.to_string());
-        self.author_email = commit.author().email().map(|s| s.to_string());
+        self.set_commit(&commit);
 
         let parent = commit.parent(0);
         if parent.is_err() {
@@ -113,35 +119,34 @@ impl FileCommit {
         diff.find_similar(Some(&mut diff_find_options))?;
         trace!("find_similar: elapsed {:?}", start_time.elapsed());
 
+        let path = self.path.as_path();
         let mut old_path: Option<PathBuf> = None;
         let mut context = DiffReadContext::default();
         diff.foreach(
             &mut |delta, _| {
-                let new_path = delta.new_file().path();
-                if new_path.is_none() || new_path.unwrap() != path {
-                    // trace!("file: {new_path:?}, not interesting");
+                if !DiffReadContext::is_path(&delta, path) {
                     return true;
                 }
-                trace!("file: {new_path:?} {delta:?}");
+                trace!("file: {delta:?}");
                 old_path = delta.old_file().path().map(|p| p.to_path_buf());
                 true
             },
             None,
             None,
             Some(&mut |delta, hunk, line| {
-                let new_path = delta.new_file().path();
-                if new_path.is_none() || new_path.unwrap() != path {
-                    // trace!("line: {new_path:?}, not interesting");
+                if !DiffReadContext::is_path(&delta, path) {
                     return true;
                 }
                 let hunk = hunk.unwrap();
                 trace!(
-                    "line: {new_path:?} {:?} hunk: {},{} -> {},{} {:?} {},{} -> {},{} {:?}->{:?},{} {:?}",
+                    "line: {:?} {:?} hunk: {},{}->{},{} line: {}{:?} {},{} -> {},{} {:?}->{:?},{} {:?}",
+                    delta.new_file().path(),
                     delta.old_file().path(),
                     hunk.old_start(),
                     hunk.old_lines(),
                     hunk.new_start(),
                     hunk.new_lines(),
+                    line.origin(),
                     line.origin_value(),
                     hunk.old_start(),
                     hunk.old_lines(),
@@ -152,7 +157,7 @@ impl FileCommit {
                     line.num_lines(),
                     String::from_utf8(line.content().to_vec())
                 );
-                context.on_line_callback(line.origin_value(), line.old_lineno(), line.new_lineno(), line.num_lines());
+                context.on_line_callback(line.origin(), line.old_lineno(), line.new_lineno(), line.num_lines());
                 true
             }),
         )?;
@@ -169,44 +174,59 @@ impl FileCommit {
         trace!("{self:#?}");
         Ok(())
     }
+
+    fn set_commit(&mut self, commit: &git2::Commit) {
+        self.time = commit.time();
+        self.summary = commit.summary().map(|s| s.to_string());
+        self.author_email = commit.author().email().map(|s| s.to_string());
+    }
 }
 
 #[derive(Debug, Default)]
 struct DiffReadContext {
-    parts: Vec<DiffPart>,
+    old_line_number: usize,
+    new_line_number: usize,
     part: DiffPart,
+    parts: Vec<DiffPart>,
 }
 
 impl DiffReadContext {
-    pub fn on_line_callback(
+    fn is_path(delta: &git2::DiffDelta, target_path: &Path) -> bool {
+        let new_path = delta.new_file().path();
+        if new_path.is_none() || new_path.unwrap() != target_path {
+            // trace!("{new_path:?}, not interesting");
+            return false;
+        }
+        true
+    }
+
+    fn on_line_callback(
         &mut self,
-        origin: git2::DiffLineType,
-        old_lineno: Option<u32>,
-        new_lineno: Option<u32>,
+        origin: char,
+        old_line_number: Option<u32>,
+        new_line_number: Option<u32>,
         num_lines: u32,
     ) {
         match origin {
-            git2::DiffLineType::Context => {
-                assert!(old_lineno.is_some());
-                assert!(new_lineno.is_some());
+            ' ' => {
+                assert!(old_line_number.is_some());
+                assert!(new_line_number.is_some());
                 assert_eq!(num_lines, 1);
                 self.flush_part();
-                let old_lineno = old_lineno.unwrap() as usize + 1;
-                let new_lineno = new_lineno.unwrap() as usize + 1;
-                self.part.old.line_numbers = old_lineno..old_lineno;
-                self.part.new.line_numbers = new_lineno..new_lineno;
+                self.old_line_number = old_line_number.unwrap() as usize + 1;
+                self.new_line_number = new_line_number.unwrap() as usize + 1;
             }
-            git2::DiffLineType::Addition => {
-                assert!(old_lineno.is_none());
-                assert!(new_lineno.is_some());
+            '+' => {
+                assert!(old_line_number.is_none());
+                assert!(new_line_number.is_some());
                 assert_eq!(num_lines, 1);
-                self.part.new.add_line(new_lineno.unwrap() as usize);
+                self.part.new.add_line(new_line_number.unwrap() as usize);
             }
-            git2::DiffLineType::Deletion => {
-                assert!(old_lineno.is_some());
-                assert!(new_lineno.is_none());
+            '-' => {
+                assert!(old_line_number.is_some());
+                assert!(new_line_number.is_none());
                 assert_eq!(num_lines, 1);
-                self.part.old.add_line(old_lineno.unwrap() as usize);
+                self.part.old.add_line(old_line_number.unwrap() as usize);
             }
             _ => {
                 trace!("origin {:?} skipped", origin);
@@ -214,9 +234,11 @@ impl DiffReadContext {
         }
     }
 
-    pub fn flush_part(&mut self) {
+    fn flush_part(&mut self) {
         if !self.part.is_empty() {
             trace!("flush_part: {:?}", self.part);
+            self.part.old.set_line_number_if_empty(self.old_line_number);
+            self.part.new.set_line_number_if_empty(self.new_line_number);
             self.part.validate_ascending().unwrap();
             self.parts.push(self.part.clone());
             self.part = DiffPart::default();
@@ -244,6 +266,7 @@ mod tests {
         let mut file_commit = FileCommit::new(commit_id2, path);
         file_commit.read(&git.git)?;
         assert_eq!(file_commit.diff_parts, [DiffPart::from_ranges(3..4, 3..6),]);
+        assert!(!file_commit.is_renamed());
         assert_eq!(file_commit.old_path(), Some(path));
         Ok(())
     }
@@ -261,6 +284,7 @@ mod tests {
 
         let mut file_commit = FileCommit::new(commit_id2, new_path);
         file_commit.read(&git.git)?;
+        assert!(file_commit.is_renamed());
         assert_eq!(file_commit.old_path(), Some(old_path));
         assert!(file_commit.diff_parts.is_empty());
         Ok(())
@@ -269,15 +293,15 @@ mod tests {
     #[test]
     fn context_add() {
         let mut context = DiffReadContext::default();
-        context.on_line_callback(git2::DiffLineType::Context, Some(2), Some(2), 1);
-        context.on_line_callback(git2::DiffLineType::Context, Some(3), Some(3), 1);
-        context.on_line_callback(git2::DiffLineType::Context, Some(4), Some(4), 1);
-        context.on_line_callback(git2::DiffLineType::Addition, None, Some(5), 1);
-        context.on_line_callback(git2::DiffLineType::Addition, None, Some(6), 1);
-        context.on_line_callback(git2::DiffLineType::Context, Some(5), Some(7), 1);
-        context.on_line_callback(git2::DiffLineType::Context, Some(6), Some(8), 1);
-        context.on_line_callback(git2::DiffLineType::Addition, None, Some(9), 1);
-        context.on_line_callback(git2::DiffLineType::Context, Some(7), Some(10), 1);
+        context.on_line_callback(' ', Some(2), Some(2), 1);
+        context.on_line_callback(' ', Some(3), Some(3), 1);
+        context.on_line_callback(' ', Some(4), Some(4), 1);
+        context.on_line_callback('+', None, Some(5), 1);
+        context.on_line_callback('+', None, Some(6), 1);
+        context.on_line_callback(' ', Some(5), Some(7), 1);
+        context.on_line_callback(' ', Some(6), Some(8), 1);
+        context.on_line_callback('+', None, Some(9), 1);
+        context.on_line_callback(' ', Some(7), Some(10), 1);
         context.flush_part();
         assert_eq!(
             context.parts,
@@ -291,13 +315,13 @@ mod tests {
     #[test]
     fn context_delete() {
         let mut context = DiffReadContext::default();
-        context.on_line_callback(git2::DiffLineType::Context, Some(1), Some(1), 1);
-        context.on_line_callback(git2::DiffLineType::Context, Some(2), Some(2), 1);
-        context.on_line_callback(git2::DiffLineType::Context, Some(3), Some(3), 1);
-        context.on_line_callback(git2::DiffLineType::Deletion, Some(4), None, 1);
-        context.on_line_callback(git2::DiffLineType::Deletion, Some(5), None, 1);
-        context.on_line_callback(git2::DiffLineType::Context, Some(6), Some(8), 1);
-        context.on_line_callback(git2::DiffLineType::Deletion, Some(7), None, 1);
+        context.on_line_callback(' ', Some(1), Some(1), 1);
+        context.on_line_callback(' ', Some(2), Some(2), 1);
+        context.on_line_callback(' ', Some(3), Some(3), 1);
+        context.on_line_callback('-', Some(4), None, 1);
+        context.on_line_callback('-', Some(5), None, 1);
+        context.on_line_callback(' ', Some(6), Some(8), 1);
+        context.on_line_callback('-', Some(7), None, 1);
         context.flush_part();
         assert_eq!(
             context.parts,

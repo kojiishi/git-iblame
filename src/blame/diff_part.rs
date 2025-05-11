@@ -107,4 +107,10 @@ impl DiffRange {
         }
         self.validate_ascending().unwrap();
     }
+
+    pub fn set_line_number_if_empty(&mut self, line_number: usize) {
+        if self.line_numbers.is_empty() {
+            self.line_numbers = line_number..line_number;
+        }
+    }
 }
