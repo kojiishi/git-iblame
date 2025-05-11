@@ -94,13 +94,16 @@ impl GitTools {
         Ok(std::str::from_utf8(blob.content())?.to_string())
     }
 
-    pub fn show(&self, commit_id: git2::Oid, path: Option<&Path>) -> anyhow::Result<()> {
-        debug!("git-show: {commit_id} {path:?}");
+    pub fn show(&self, commit_id: git2::Oid, paths: &[&Path]) -> anyhow::Result<()> {
+        debug!("git-show: {commit_id} {paths:?}");
         let mut command = std::process::Command::new("git");
         command.current_dir(self.repository_path());
         command.arg("show").arg(commit_id.to_string());
-        if let Some(path) = path {
-            command.arg("--").arg(path);
+        if !paths.is_empty() {
+            command.arg("--");
+            for path in paths {
+                command.arg(path);
+            }
         }
         let mut child = command.spawn()?;
         child.wait()?;
