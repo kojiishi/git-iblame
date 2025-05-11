@@ -1,4 +1,7 @@
-use std::io::{Write, stdout};
+use std::{
+    io::{Write, stdout},
+    time::{SystemTime, UNIX_EPOCH},
+};
 
 use crossterm::{cursor, queue, style, terminal};
 
@@ -6,6 +9,7 @@ use crossterm::{cursor, queue, style, terminal};
 pub enum CommandPrompt {
     #[default]
     None,
+    Loading,
     Message {
         message: String,
     },
@@ -22,33 +26,54 @@ impl CommandPrompt {
             cursor::MoveTo(0, row),
             terminal::Clear(terminal::ClearType::CurrentLine),
         )?;
-        let mut has_prompt = true;
+        let mut supress_help = false;
         match self {
-            CommandPrompt::None => has_prompt = false,
-            CommandPrompt::Message { message } => queue!(out, style::Print(message.to_string()),)?,
-            CommandPrompt::Err { error } => queue!(
-                out,
-                style::SetColors(style::Colors::new(style::Color::White, style::Color::Red)),
-                style::Print(error.to_string()),
-                style::ResetColor
-            )?,
-        };
-        if !has_prompt && buffer.is_empty() {
-            queue!(
-                out,
-                cursor::MoveTo(1, row),
-                style::SetForegroundColor(style::Color::DarkGrey),
-                style::Print("h(elp), q(uit), Right=parent, s(how), d(iff)"),
-                style::ResetColor,
-                cursor::MoveTo(0, row),
-                style::Print(":".to_string())
-            )?;
-        } else if buffer.starts_with('/') {
+            CommandPrompt::None => {}
+            CommandPrompt::Loading => {
+                let icon = Self::loading_indicator()?;
+                queue!(out, style::Print(icon.to_string()),)?;
+            }
+            CommandPrompt::Message { message } => {
+                queue!(out, style::Print(message.to_string()),)?;
+                supress_help = true;
+            }
+            CommandPrompt::Err { error } => {
+                let errro_message = error.to_string();
+                queue!(
+                    out,
+                    style::SetColors(style::Colors::new(style::Color::White, style::Color::Red)),
+                    style::Print(errro_message),
+                    style::ResetColor
+                )?;
+                supress_help = true;
+            }
+        }
+        if buffer.starts_with('/') {
             queue!(out, style::Print(buffer))?;
         } else {
             queue!(out, style::Print(format!(":{buffer}")))?;
+            if !supress_help && buffer.is_empty() {
+                queue!(
+                    out,
+                    cursor::SavePosition,
+                    style::SetForegroundColor(style::Color::DarkGrey),
+                    style::Print("h(elp), q(uit), Right=parent, s(how), d(iff)"),
+                    style::ResetColor,
+                    cursor::RestorePosition,
+                )?;
+            }
         }
         out.flush()?;
         Ok(())
+    }
+
+    const ICON_CYCLE: &str = r"-\|/";
+
+    fn loading_indicator() -> anyhow::Result<char> {
+        let now = SystemTime::now();
+        let duration = now.duration_since(UNIX_EPOCH)?;
+        let index = (duration.as_secs() % (Self::ICON_CYCLE.len() as u64)) as usize;
+        let icon = Self::ICON_CYCLE.chars().nth(index).unwrap();
+        Ok(icon)
     }
 }
