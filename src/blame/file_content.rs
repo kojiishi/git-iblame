@@ -40,7 +40,11 @@ impl FileContent {
 
     pub fn line_index_from_number(&self, line_number: usize) -> usize {
         assert!(line_number > 0);
-        assert!(line_number <= self.last_line_number());
+        assert!(
+            line_number <= self.last_line_number(),
+            "{line_number} > {}",
+            self.last_line_number()
+        );
         let mut start_index = line_number - 1;
         let start_line = &self.lines[start_index];
         if start_line.line_number() == line_number {
@@ -54,6 +58,13 @@ impl FileContent {
             .position(|line| line.line_number() == line_number)
             .unwrap()
             + start_index
+    }
+
+    fn line_index_from_number_for_end(&self, line_number: usize) -> usize {
+        if line_number == self.last_line_number() + 1 {
+            return self.lines.len();
+        }
+        self.line_index_from_number(line_number)
     }
 
     pub fn commit_id(&self) -> git2::Oid {
@@ -279,8 +290,8 @@ impl FileContent {
         if old_line_numbers.is_empty() {
             return Ok(()); // Line number mapping may have created this.
         }
-        let line_index = self.line_index_from_number(new_line_numbers.start);
-        if line_index > 0 {
+        let line_index = self.line_index_from_number_for_end(new_line_numbers.start);
+        if line_index > 0 && line_index < self.lines.len() {
             let prev_line = &self.lines[line_index - 1];
             let next_line = &self.lines[line_index];
             if prev_line.commit_id().is_some()
