@@ -4,7 +4,7 @@ use std::ops::Range;
 pub trait RangeExt<Idx> {
     /// Get the intersection of two `Range`s.
     /// ```
-    /// use git_iblame::RangeExt;
+    /// use git_iblame::extensions::RangeExt;
     /// assert_eq!((2..4).intersect(1..6), 2..4);
     /// assert_eq!((2..4).intersect(3..6), 3..4);
     /// assert_eq!((2..4).intersect(1..3), 2..3);

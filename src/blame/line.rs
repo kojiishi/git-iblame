@@ -2,7 +2,7 @@ use std::{fmt, io::Write};
 
 use crossterm::{queue, style};
 
-use crate::Git2TimeToChronoExt;
+use crate::extensions::Git2TimeToChronoExt;
 
 use super::FileHistory;
 

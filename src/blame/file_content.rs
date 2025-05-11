@@ -6,7 +6,7 @@ use std::{
 
 use log::*;
 
-use crate::GitTools;
+use crate::extensions::GitTools;
 
 use super::{DiffPart, FileCommit, FileHistory, Line, LineNumberMap};
 

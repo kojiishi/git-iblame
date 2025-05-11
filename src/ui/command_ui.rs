@@ -6,7 +6,7 @@ use std::{
 use crossterm::{event, queue, style};
 use log::debug;
 
-use crate::*;
+use super::*;
 
 #[derive(Debug, Default)]
 pub struct CommandUI {

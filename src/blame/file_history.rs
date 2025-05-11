@@ -7,7 +7,7 @@ use std::{
 
 use log::*;
 
-use crate::GitTools;
+use crate::extensions::GitTools;
 
 use super::{CommitIterator, DiffPart, FileCommit, FileCommits, FileContent, LineNumberMap};
 

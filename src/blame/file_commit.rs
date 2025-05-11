@@ -2,7 +2,7 @@ use std::path::{Path, PathBuf};
 
 use log::*;
 
-use crate::GitTools;
+use crate::extensions::GitTools;
 
 use super::DiffPart;
 
@@ -218,7 +218,7 @@ impl DiffReadContext {
 
 #[cfg(test)]
 mod tests {
-    use crate::tests::TempRepository;
+    use crate::extensions::tests::TempRepository;
 
     use super::*;
 
