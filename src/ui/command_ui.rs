@@ -4,6 +4,7 @@ use std::{
 };
 
 use crossterm::{event, queue, style};
+use log::debug;
 
 use crate::*;
 
@@ -96,6 +97,7 @@ impl CommandUI {
 
     pub fn set_result(&mut self, result: anyhow::Result<()>) {
         if let Err(error) = result {
+            debug!("set_result: error: {error:?}");
             self.set_error(error);
         }
     }
