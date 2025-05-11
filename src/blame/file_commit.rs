@@ -70,12 +70,11 @@ impl FileCommit {
 
     pub fn read(&mut self, git: &GitTools) -> anyhow::Result<()> {
         let path = self.path.as_path();
-        trace!("read diff for commit_id: {:?} {path:?}", self.commit_id);
+        trace!("read: {:?} {path:?}", self.commit_id);
         assert!(path.is_relative());
         assert!(self.diff_parts.is_empty());
         let start_time = std::time::Instant::now();
         let commit_id = self.commit_id;
-        trace!("commit_id: {commit_id}");
         let commit = git.repository().find_commit(commit_id)?;
         self.time = commit.time();
         self.summary = commit.summary().map(|s| s.to_string());
@@ -93,6 +92,13 @@ impl FileCommit {
 
         let tree = commit.tree()?;
         let parent_tree = parent.tree()?;
+        trace!(
+            "tree {}..{}: elapsed {:?}",
+            parent_tree.id(),
+            tree.id(),
+            start_time.elapsed()
+        );
+
         let mut diff_options = git2::DiffOptions::new();
         diff_options.ignore_whitespace(true);
         let mut diff = git.repository().diff_tree_to_tree(
@@ -100,9 +106,12 @@ impl FileCommit {
             Some(&tree),
             Some(&mut diff_options),
         )?;
+        trace!("diff_tree_to_tree: elapsed {:?}", start_time.elapsed());
+
         let mut diff_find_options = git2::DiffFindOptions::new();
         diff_find_options.renames(true);
         diff.find_similar(Some(&mut diff_find_options))?;
+        trace!("find_similar: elapsed {:?}", start_time.elapsed());
 
         let mut old_path: Option<PathBuf> = None;
         let mut context = DiffReadContext::default();
