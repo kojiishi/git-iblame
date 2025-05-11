@@ -100,6 +100,6 @@ Major commands are:
 * **s**: Show the commit at the current line.
 * **d**: Show the diff of the current file of the commit at the current line.
 * **c**: Copy the hash of the current line commit to the clipboard.
-* **→** (**Right**) or **Enter**: Traverse to the parent commit of the commit at the current line.
-* **←** (**Left**) or **Backspace**: Undo the last traversal;
+* **→** (**Right**): Traverse to the parent commit of the commit at the current line.
+* **←** (**Left**): Undo the last traversal;
   i.e., traverse back to the last newer tree.
