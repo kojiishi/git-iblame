@@ -103,3 +103,9 @@ Major commands are:
 * **→** (**Right**): Traverse to the parent commit of the commit at the current line.
 * **←** (**Left**): Undo the last traversal;
   i.e., traverse back to the last newer tree.
+
+# Change History
+
+Please see [release notes].
+
+[release notes]: https://github.com/kojiishi/git-iblame/releases
