@@ -54,11 +54,17 @@ impl Cli {
             ui.set_result(result);
             let command_rows = renderer.rendered_rows();
 
-            ui.timeout = if renderer.history().is_reading() {
-                Duration::from_millis(1000)
+            if renderer.history().is_reading() {
+                ui.timeout = Duration::from_millis(1000);
+                if matches!(ui.prompt, CommandPrompt::None) {
+                    ui.prompt = CommandPrompt::Loading;
+                }
             } else {
-                Duration::ZERO
-            };
+                ui.timeout = Duration::ZERO;
+                if matches!(ui.prompt, CommandPrompt::Loading) {
+                    ui.prompt = CommandPrompt::None;
+                }
+            }
             let command = ui.read(command_rows)?;
             match command {
                 Command::Quit => break,
