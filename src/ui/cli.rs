@@ -4,6 +4,7 @@ use std::{
     time::Duration,
 };
 
+use clap::Parser;
 use crossterm::{clipboard::CopyToClipboard, cursor, execute, style, terminal};
 use git2::Oid;
 use log::debug;
@@ -11,6 +12,14 @@ use log::debug;
 use crate::{blame::FileHistory, extensions::TerminalRawModeScope};
 
 use super::*;
+
+/// Interactive enhanced `git blame` command line tool.
+#[derive(Debug, Default, Parser)]
+#[command(version, about)]
+struct Args {
+    /// Path of the file to annotate the history.
+    path: PathBuf,
+}
 
 #[derive(Debug, Default)]
 /// The `git-iblame` command line interface.
@@ -32,6 +41,14 @@ pub struct Cli {
 }
 
 impl Cli {
+    pub fn new_from_args() -> Self {
+        let args = Args::parse();
+        Self {
+            path: args.path,
+            ..Default::default()
+        }
+    }
+
     pub fn new(path: &Path) -> Self {
         Self {
             path: path.to_path_buf(),
