@@ -245,23 +245,10 @@ impl FileContent {
 
     fn apply_diff_part(&mut self, part: &DiffPart, commit: &FileCommit) -> anyhow::Result<()> {
         let commit_id = commit.commit_id();
-        let new_line_numbers = part.new.line_numbers();
         trace!("apply: #{} {part:?}", commit.index());
+        let new_line_numbers = part.new.line_numbers();
         if new_line_numbers.is_empty() {
-            // This part is deleted. Insert a marker to make it visible.
-            assert!(new_line_numbers.start > 0);
-            let old_line_numbers = &part.old.line_numbers;
-            assert!(old_line_numbers.start > 0);
-            if old_line_numbers.is_empty() {
-                return Ok(()); // Line number mapping may have created this.
-            }
-            let line = Line::new_deleted(new_line_numbers.start, commit_id);
-            let line_index = self.line_index_from_number(new_line_numbers.start);
-            self.lines.insert(line_index, line);
-            if self.current_line_index >= line_index {
-                self.current_line_index += 1;
-            }
-            return Ok(());
+            return self.insert_deleted_part(part, commit_id);
         }
 
         // Saturate `end`, as it may be set to `MAX`.
@@ -280,6 +267,34 @@ impl FileContent {
             }
         }
 
+        Ok(())
+    }
+
+    fn insert_deleted_part(&mut self, part: &DiffPart, commit_id: git2::Oid) -> anyhow::Result<()> {
+        let new_line_numbers = part.new.line_numbers();
+        assert!(new_line_numbers.is_empty());
+        assert!(new_line_numbers.start > 0);
+        let old_line_numbers = &part.old.line_numbers;
+        assert!(old_line_numbers.start > 0);
+        if old_line_numbers.is_empty() {
+            return Ok(()); // Line number mapping may have created this.
+        }
+        let line_index = self.line_index_from_number(new_line_numbers.start);
+        if line_index > 0 {
+            let prev_line = &self.lines[line_index - 1];
+            let next_line = &self.lines[line_index];
+            if prev_line.commit_id().is_some()
+                && next_line.commit_id().is_some()
+                && prev_line.commit_id().unwrap() == next_line.commit_id().unwrap()
+            {
+                return Ok(());
+            }
+        }
+        let line = Line::new_deleted(new_line_numbers.start, commit_id);
+        self.lines.insert(line_index, line);
+        if self.current_line_index >= line_index {
+            self.current_line_index += 1;
+        }
         Ok(())
     }
 

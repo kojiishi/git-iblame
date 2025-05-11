@@ -21,10 +21,10 @@ up to the initial commit.
 
 Features:
 
-* Moving the cursor to the line of your interests.
-* Traversing to older or newer trees of the line interactively.
-* Seeing the commit or the diff of the line at any trees.
-* Seeing and traversing to commits that deleted lines.
+* The interactive "current line" specifies the line of your interests.
+* Easy and instant traversal to older or newer trees of the line interactively.
+* Inspect the commit or the diff that inserted the line.
+* Deleted lines are also shown for inspections.
 
 The `git-iblame` is built for speed.
 Computing all the history of a file is an expensive task,
