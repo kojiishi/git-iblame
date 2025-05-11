@@ -1,6 +1,6 @@
 use std::collections::HashMap;
-use std::ops::{Deref, Index, Range, RangeFrom};
-use std::slice;
+use std::ops::{Deref, Index};
+use std::slice::{self, SliceIndex};
 
 use super::FileCommit;
 
@@ -94,42 +94,19 @@ impl Deref for FileCommits {
     }
 }
 
-/// Allows indexing `FileCommits` by `usize` to get a `FileCommit`.
+/// Allows indexing `FileCommits` by types that implement `SliceIndex`
+/// (e.g., `usize`, `Range<usize>`, `RangeFrom<usize>`, etc.).
+/// This provides direct access to the underlying `Vec<FileCommit>`'s indexing capabilities,
+/// allowing for retrieval of single `FileCommit` references or slices (`&[FileCommit]`).
 ///
 /// # Panics
-///
-/// Panics if `index` is out of bounds.
-impl Index<usize> for FileCommits {
-    type Output = FileCommit;
+/// Panics if the index is out of bounds, consistent with slice indexing.
+impl<I: SliceIndex<[FileCommit]>> Index<I> for FileCommits {
+    type Output = I::Output;
 
-    fn index(&self, index: usize) -> &Self::Output {
+    #[inline]
+    fn index(&self, index: I) -> &Self::Output {
         &self.items[index]
-    }
-}
-
-/// Allows indexing `FileCommits` by `Range<usize>` to get a slice `&[FileCommit]`.
-///
-/// # Panics
-///
-/// Panics if the range is out of bounds.
-impl Index<Range<usize>> for FileCommits {
-    type Output = [FileCommit];
-
-    fn index(&self, range: Range<usize>) -> &Self::Output {
-        &self.items[range]
-    }
-}
-
-/// Allows indexing `FileCommits` by `RangeFrom<usize>` (e.g., `start..`) to get a slice `&[FileCommit]`.
-///
-/// # Panics
-///
-/// Panics if the start of the range is out of bounds.
-impl Index<RangeFrom<usize>> for FileCommits {
-    type Output = [FileCommit];
-
-    fn index(&self, range: RangeFrom<usize>) -> &Self::Output {
-        &self.items[range]
     }
 }
 
