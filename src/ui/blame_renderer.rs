@@ -100,9 +100,10 @@ impl BlameRenderer {
         self.scroll_current_line_into_view();
     }
 
-    pub fn set_current_line_number(&mut self, line_number: usize) {
-        let line_index = self.content.line_index_from_number(line_number);
+    pub fn set_current_line_number(&mut self, line_number: usize) -> anyhow::Result<()> {
+        let line_index = self.content.line_index_from_number(line_number)?;
         self.set_current_line_index(line_index);
+        Ok(())
     }
 
     pub fn move_to_first_line(&mut self) {
@@ -192,7 +193,7 @@ impl BlameRenderer {
             self.commit_id(),
         )?;
         let mut content = self.history().content(commit_id)?;
-        content.set_current_line_number(line_number);
+        content.set_current_line_number(line_number)?;
         self.swap_content(&mut content);
         Ok(())
     }
