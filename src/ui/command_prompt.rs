@@ -26,7 +26,7 @@ impl CommandPrompt {
             cursor::MoveTo(0, row),
             terminal::Clear(terminal::ClearType::CurrentLine),
         )?;
-        let mut supress_help = false;
+        let mut suppress_help = false;
         match self {
             CommandPrompt::None => {}
             CommandPrompt::Loading => {
@@ -35,24 +35,24 @@ impl CommandPrompt {
             }
             CommandPrompt::Message { message } => {
                 queue!(out, style::Print(message.to_string()),)?;
-                supress_help = true;
+                suppress_help = true;
             }
             CommandPrompt::Err { error } => {
-                let errro_message = error.to_string();
+                let error_message = error.to_string();
                 queue!(
                     out,
                     style::SetColors(style::Colors::new(style::Color::White, style::Color::Red)),
-                    style::Print(errro_message),
+                    style::Print(error_message),
                     style::ResetColor
                 )?;
-                supress_help = true;
+                suppress_help = true;
             }
         }
         if buffer.starts_with('/') {
             queue!(out, style::Print(buffer))?;
         } else {
             queue!(out, style::Print(format!(":{buffer}")))?;
-            if !supress_help && buffer.is_empty() {
+            if !suppress_help && buffer.is_empty() {
                 queue!(
                     out,
                     cursor::SavePosition,

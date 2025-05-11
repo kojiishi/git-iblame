@@ -34,39 +34,6 @@ impl FileContent {
         Self::new(git2::Oid::zero(), Path::new(""))
     }
 
-    fn last_line_number(&self) -> usize {
-        self.lines.last().unwrap().line_number()
-    }
-
-    pub fn line_index_from_number(&self, line_number: usize) -> usize {
-        assert!(line_number > 0);
-        assert!(
-            line_number <= self.last_line_number(),
-            "{line_number} > {}",
-            self.last_line_number()
-        );
-        let mut start_index = line_number - 1;
-        let start_line = &self.lines[start_index];
-        if start_line.line_number() == line_number {
-            return start_index;
-        }
-        start_index += 1;
-        let lines = &self.lines[start_index..];
-        assert!(line_number >= lines.first().unwrap().line_number());
-        lines
-            .iter()
-            .position(|line| line.line_number() == line_number)
-            .unwrap()
-            + start_index
-    }
-
-    fn line_index_from_number_for_end(&self, line_number: usize) -> usize {
-        if line_number == self.last_line_number() + 1 {
-            return self.lines.len();
-        }
-        self.line_index_from_number(line_number)
-    }
-
     pub fn commit_id(&self) -> git2::Oid {
         self.commit_id
     }
@@ -87,6 +54,58 @@ impl FileContent {
         cmp::min(line_index, self.lines_len().saturating_sub(1))
     }
 
+    fn first_line_number(&self) -> anyhow::Result<usize> {
+        self.lines
+            .first()
+            .map(|line| line.line_number())
+            .ok_or(anyhow::anyhow!("No lines"))
+    }
+
+    fn last_line_number(&self) -> anyhow::Result<usize> {
+        self.lines
+            .last()
+            .map(|line| line.line_number())
+            .ok_or(anyhow::anyhow!("No lines"))
+    }
+
+    fn saturate_line_number_end(&self, line_number: usize) -> anyhow::Result<usize> {
+        if self.lines.is_empty() {
+            anyhow::bail!("No lines");
+        }
+        Ok(cmp::min(
+            cmp::max(line_number, self.first_line_number()?),
+            self.last_line_number()? + 1,
+        ))
+    }
+
+    pub fn line_index_from_number(&self, line_number: usize) -> anyhow::Result<usize> {
+        let first_line_number = self.first_line_number()?;
+        if line_number < first_line_number || line_number > self.last_line_number()? {
+            anyhow::bail!("Not a valid line number: {line_number}");
+        }
+        let mut start_index = line_number - first_line_number;
+        let start_line = &self.lines[start_index];
+        if start_line.line_number() == line_number {
+            return Ok(start_index);
+        }
+        assert!(line_number > start_line.line_number());
+        start_index += 1;
+        let lines = &self.lines[start_index..];
+        assert!(line_number >= lines.first().unwrap().line_number());
+        lines
+            .iter()
+            .position(|line| line.line_number() == line_number)
+            .map(|i| i + start_index)
+            .ok_or_else(|| anyhow::anyhow!("No line number: {line_number}"))
+    }
+
+    fn line_index_from_number_end(&self, line_number: usize) -> anyhow::Result<usize> {
+        if line_number == self.last_line_number()? + 1 {
+            return Ok(self.lines.len());
+        }
+        self.line_index_from_number(line_number)
+    }
+
     pub fn current_line_index(&self) -> usize {
         self.current_line_index
     }
@@ -95,8 +114,9 @@ impl FileContent {
         self.current_line_index = self.saturate_line_index(line_index);
     }
 
-    pub fn set_current_line_number(&mut self, line_number: usize) {
-        self.set_current_line_index(self.line_index_from_number(line_number));
+    pub fn set_current_line_number(&mut self, line_number: usize) -> anyhow::Result<()> {
+        self.set_current_line_index(self.line_index_from_number(line_number)?);
+        Ok(())
     }
 
     pub fn current_line(&self) -> &Line {
@@ -264,8 +284,8 @@ impl FileContent {
 
         // Saturate `end`, as it may be set to `MAX`.
         let new_line_numbers =
-            new_line_numbers.start..cmp::min(new_line_numbers.end, self.last_line_number() + 1);
-        let line_index = self.line_index_from_number(new_line_numbers.start);
+            new_line_numbers.start..self.saturate_line_number_end(new_line_numbers.end)?;
+        let line_index = self.line_index_from_number(new_line_numbers.start)?;
         trace!("apply: index={line_index} for {new_line_numbers:?}");
         for line_index in line_index..self.lines_len() {
             let line = &mut self.lines[line_index];
@@ -290,7 +310,7 @@ impl FileContent {
         if old_line_numbers.is_empty() {
             return Ok(()); // Line number mapping may have created this.
         }
-        let line_index = self.line_index_from_number_for_end(new_line_numbers.start);
+        let line_index = self.line_index_from_number_end(new_line_numbers.start)?;
         if line_index > 0 && line_index < self.lines.len() {
             let prev_line = &self.lines[line_index - 1];
             let next_line = &self.lines[line_index];
@@ -344,19 +364,20 @@ mod tests {
     use super::*;
 
     #[test]
-    fn line_index_from_number() {
+    fn line_index_from_number() -> anyhow::Result<()> {
         let mut content = FileContent::new_for_test();
         for i in 1..=10 {
             content.lines.push(Line::new(i, i.to_string()));
         }
-        assert_eq!(content.last_line_number(), 10);
-        assert_eq!(content.line_index_from_number(1), 0);
-        assert_eq!(content.line_index_from_number(10), 9);
+        assert_eq!(content.last_line_number()?, 10);
+        assert_eq!(content.line_index_from_number(1)?, 0);
+        assert_eq!(content.line_index_from_number(10)?, 9);
         content.lines.insert(5, Line::new(6, "6-2".to_string()));
-        assert_eq!(content.line_index_from_number(5), 4);
-        assert_eq!(content.line_index_from_number(6), 5);
-        assert_eq!(content.line_index_from_number(7), 7);
-        assert_eq!(content.line_index_from_number(10), 10);
+        assert_eq!(content.line_index_from_number(5)?, 4);
+        assert_eq!(content.line_index_from_number(6)?, 5);
+        assert_eq!(content.line_index_from_number(7)?, 7);
+        assert_eq!(content.line_index_from_number(10)?, 10);
+        Ok(())
     }
 
     #[test]

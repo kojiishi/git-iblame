@@ -95,7 +95,7 @@ impl Cli {
             Command::NextPage => renderer.move_to_next_page(),
             Command::FirstLine => renderer.move_to_first_line(),
             Command::LastLine => renderer.move_to_last_line(),
-            Command::LineNumber(number) => renderer.set_current_line_number(number),
+            Command::LineNumber(number) => renderer.set_current_line_number(number)?,
             Command::Search(search) => {
                 renderer.search(&search, /*reverses*/ false);
                 self.last_search = Some(search);
