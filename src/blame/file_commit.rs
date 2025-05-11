@@ -1,10 +1,21 @@
-use std::path::{Path, PathBuf};
+use std::{
+    io::{BufRead, BufReader},
+    path::{Path, PathBuf},
+};
 
 use log::*;
+use regex::Regex;
 
 use crate::extensions::GitTools;
 
 use super::DiffPart;
+
+#[derive(Copy, Clone, Debug)]
+enum GitEngine {
+    Git,
+    Git2,
+}
+static mut DIFF_ENGINE: GitEngine = GitEngine::Git;
 
 #[derive(Debug)]
 pub struct FileCommit {
@@ -30,6 +41,14 @@ impl FileCommit {
             old_path: None,
             diff_parts: Vec::new(),
         }
+    }
+
+    fn git_engine() -> GitEngine {
+        unsafe { DIFF_ENGINE }
+    }
+
+    pub fn use_git2() {
+        unsafe { DIFF_ENGINE = GitEngine::Git2 }
     }
 
     pub fn commit_id(&self) -> git2::Oid {
@@ -78,11 +97,87 @@ impl FileCommit {
     }
 
     pub fn read(&mut self, git: &GitTools) -> anyhow::Result<()> {
-        trace!("read: {:?} {:?}", self.commit_id, self.path);
         assert!(self.path.is_relative());
         assert!(self.diff_parts.is_empty());
+        match Self::git_engine() {
+            GitEngine::Git => self.read_by_git(git),
+            GitEngine::Git2 => self.read_by_git2(git),
+        }
+    }
+
+    fn read_by_git(&mut self, git: &GitTools) -> anyhow::Result<()> {
         let start_time = std::time::Instant::now();
         let commit_id = self.commit_id;
+        trace!("read_by_git: {:?} {:?}", commit_id, self.path);
+        let commit = git.repository().find_commit(commit_id)?;
+        self.set_commit(&commit);
+
+        let mut child = std::process::Command::new("git")
+            .current_dir(git.repository_path())
+            .arg("show")
+            .arg(commit_id.to_string())
+            .stdout(std::process::Stdio::piped())
+            .spawn()?;
+        let stdout = child.stdout.take().unwrap();
+        let reader = BufReader::new(stdout);
+        let re_file = Regex::new(r"^diff --git a/(.+) b/(.+)$")?;
+        let re_hunk = Regex::new(r"^@@ -(\d+),(\d+) \+(\d+),(\d+) @@")?;
+
+        let path = self.path.to_str().unwrap();
+        let mut is_in_hunk = false;
+        let mut is_path_found = false;
+        let mut old_path: Option<PathBuf> = None;
+        let mut context = DiffReadContext::default();
+        for line in reader.lines() {
+            let line = line?;
+            if let Some(captures) = re_file.captures(&line) {
+                if is_path_found {
+                    // TODO
+                    break;
+                }
+                let new_path = captures.get(2).unwrap().as_str();
+                is_path_found = new_path == path;
+                trace!("file: {new_path} {is_path_found}");
+                if is_path_found {
+                    old_path = Some(captures.get(1).unwrap().as_str().to_string().into());
+                }
+                is_in_hunk = false;
+                continue;
+            }
+            if !is_path_found {
+                continue;
+            }
+            if let Some(captures) = re_hunk.captures(&line) {
+                let old_line_number = captures.get(1).unwrap().as_str().parse::<usize>()?;
+                let new_line_number = captures.get(3).unwrap().as_str().parse::<usize>()?;
+                context.on_git_hunk(old_line_number, new_line_number);
+                is_in_hunk = true;
+                continue;
+            }
+            if is_in_hunk {
+                context.on_git_line(&line);
+            }
+        }
+        context.flush_part();
+
+        self.old_path = old_path;
+        self.diff_parts = context.parts;
+        DiffPart::validate_ascending_parts(&self.diff_parts).unwrap();
+        trace!("read_by_git: elapsed {:?}", start_time.elapsed());
+        trace!("{self:#?}");
+
+        let exit_status = child.wait()?;
+        trace!(
+            "read_by_git: exit={exit_status}: elapsed {:?}",
+            start_time.elapsed()
+        );
+        Ok(())
+    }
+
+    fn read_by_git2(&mut self, git: &GitTools) -> anyhow::Result<()> {
+        let start_time = std::time::Instant::now();
+        let commit_id = self.commit_id;
+        trace!("read_by_git2: {:?} {:?}", commit_id, self.path);
         let commit = git.repository().find_commit(commit_id)?;
         self.set_commit(&commit);
 
@@ -232,6 +327,37 @@ impl DiffReadContext {
                 trace!("origin {:?} skipped", origin);
             }
         }
+    }
+
+    fn on_git_hunk(&mut self, old_line_number: usize, new_line_number: usize) {
+        trace!("on_git_hunk: {old_line_number},{new_line_number}");
+        self.old_line_number = old_line_number;
+        self.new_line_number = new_line_number;
+    }
+
+    fn on_git_line(&mut self, line: &str) {
+        let origin = line.chars().nth(0).unwrap();
+        trace!(
+            "on_git_line: {origin} {},{}",
+            self.old_line_number, self.new_line_number
+        );
+        match origin {
+            ' ' => {
+                self.flush_part();
+                self.old_line_number += 1;
+                self.new_line_number += 1;
+            }
+            '+' => {
+                self.part.new.add_line(self.new_line_number);
+                self.new_line_number += 1;
+            }
+            '-' => {
+                self.part.old.add_line(self.old_line_number);
+                self.old_line_number += 1;
+            }
+            _ => unreachable!("Unexpected line: {line}"),
+        }
+        trace!("on_git_line: done: {:?} {:?}", self.part.old, self.part.new);
     }
 
     fn flush_part(&mut self) {
