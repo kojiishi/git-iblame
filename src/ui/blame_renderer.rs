@@ -215,15 +215,15 @@ impl BlameRenderer {
 
     pub fn show_current_line_commit(&mut self, current_file_only: bool) -> anyhow::Result<()> {
         let commit_id = self.current_line_commit_id()?;
-        self.git().show(
-            commit_id,
-            if current_file_only {
-                let commit = self.history.commits().get_by_commit_id(commit_id)?;
-                Some(commit.path())
-            } else {
-                None
-            },
-        )?;
+        let mut paths = vec![];
+        if current_file_only {
+            let commit = self.history.commits().get_by_commit_id(commit_id)?;
+            paths.push(commit.path());
+            if commit.is_renamed() {
+                paths.push(commit.old_path().unwrap());
+            }
+        }
+        self.git().show(commit_id, &paths)?;
         self.invalidate_render();
         Ok(())
     }
