@@ -4,7 +4,7 @@ use chrono::TimeZone;
 /// An extension trait to convert `git2::Time` to `chrono::DateTime`.
 /// # Examples
 /// ```no_run
-/// use git_iblame::Git2TimeToChronoExt;
+/// use git_iblame::extensions::Git2TimeToChronoExt;
 ///
 /// // Print `git2::Time` to `stdout`.
 /// fn print_git2_time(time: git2::Time) {
@@ -21,7 +21,7 @@ pub trait Git2TimeToChronoExt {
     /// The time zone offset is the value in the `git2::Time`.
     /// # Examples
     /// ```
-    /// use git_iblame::Git2TimeToChronoExt;
+    /// use git_iblame::extensions::Git2TimeToChronoExt;
     ///
     /// // The Eastern Hemisphere time zone.
     /// let east_time = git2::Time::new(1745693791, 540);
@@ -30,7 +30,7 @@ pub trait Git2TimeToChronoExt {
     /// assert_eq!(east_datetime.unwrap().to_string(), "2025-04-27 03:56:31 +09:00");
     /// ```
     /// ```
-    /// # use git_iblame::Git2TimeToChronoExt;
+    /// # use git_iblame::extensions::Git2TimeToChronoExt;
     /// // The Western Hemisphere time zone.
     /// let west_time = git2::Time::new(1745196130, -420);
     /// let west_datetime = west_time.to_date_time();
@@ -42,7 +42,7 @@ pub trait Git2TimeToChronoExt {
     /// Convert `git2::Time` to `chrono::DateTime` in the specified time zone.
     /// # Examples
     /// ```
-    /// use git_iblame::Git2TimeToChronoExt;
+    /// use git_iblame::extensions::Git2TimeToChronoExt;
     /// let time = git2::Time::new(1745196130, -420);
     /// let utc_datetime = time.to_date_time_in(&chrono::Utc);
     /// assert_eq!(utc_datetime.unwrap().to_string(), "2025-04-21 00:42:10 UTC");
@@ -55,7 +55,7 @@ pub trait Git2TimeToChronoExt {
     /// Convert `git2::Time` to `chrono::DateTime` in the local time zone.
     /// This function is a shorthand of:
     /// ```
-    /// # use git_iblame::Git2TimeToChronoExt;
+    /// # use git_iblame::extensions::Git2TimeToChronoExt;
     /// # let time = git2::Time::new(1745693791, 540);
     /// let local_datetime = time.to_date_time_in(&chrono::Local);
     /// ```

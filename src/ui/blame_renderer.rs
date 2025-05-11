@@ -4,7 +4,10 @@ use anyhow::bail;
 use crossterm::{cursor, queue, terminal};
 use git2::Oid;
 
-use crate::*;
+use crate::{
+    blame::*,
+    extensions::{GitTools, RangeExt},
+};
 
 pub struct BlameRenderer {
     history: FileHistory,

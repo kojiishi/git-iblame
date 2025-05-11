@@ -14,13 +14,12 @@ use log::*;
 /// # Examples
 /// ```no_run
 /// # fn main() -> std::io::Result<()> {
-/// use git_iblame::TerminalRawModeScope;
+/// use git_iblame::extensions::TerminalRawModeScope;
 ///
 /// let mut terminal_raw_mode = TerminalRawModeScope::new(true)?;
 /// // Do the work.
 /// // If it returns early, the terminal raw mode will be reset automatically.
-/// terminal_raw_mode.reset()?
-/// ;
+/// terminal_raw_mode.reset()?;
 /// # Ok(())
 /// # }
 /// ```

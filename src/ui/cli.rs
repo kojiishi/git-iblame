@@ -8,13 +8,15 @@ use crossterm::{clipboard::CopyToClipboard, cursor, execute, style, terminal};
 use git2::Oid;
 use log::debug;
 
-use crate::*;
+use crate::{blame::FileHistory, extensions::TerminalRawModeScope};
+
+use super::*;
 
 #[derive(Debug, Default)]
 /// The `git-iblame` command line interface.
 /// # Examples
 /// ```no_run
-/// use git_iblame::Cli;
+/// use git_iblame::ui::Cli;
 ///
 /// # use std::path::PathBuf;
 /// fn main() -> anyhow::Result<()> {
