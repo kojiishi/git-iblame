@@ -135,7 +135,9 @@ impl Cli {
                 let path_before = renderer.path().to_path_buf();
                 let old_commit_id = renderer.commit_id();
                 renderer.set_commit_id_to_older_than_current_line()?;
-                self.history.push(old_commit_id);
+                if !old_commit_id.is_zero() {
+                    self.history.push(old_commit_id);
+                }
                 if path_before != renderer.path() {
                     ui.set_prompt(format!("Path changed to {}", renderer.path().display()));
                 }
@@ -147,6 +149,13 @@ impl Cli {
                     if path_before != renderer.path() {
                         ui.set_prompt(format!("Path changed to {}", renderer.path().display()));
                     }
+                }
+            }
+            Command::Log => {
+                let old_commit_id = renderer.commit_id();
+                renderer.set_log_content()?;
+                if !old_commit_id.is_zero() {
+                    self.history.push(old_commit_id);
                 }
             }
             Command::Copy => {

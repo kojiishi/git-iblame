@@ -4,15 +4,23 @@ use crossterm::{queue, style};
 
 use crate::extensions::Git2TimeToChronoExt;
 
-use super::FileHistory;
+use super::{FileCommit, FileHistory};
+
+#[derive(Debug, Default, Eq, PartialEq)]
+enum LineType {
+    #[default]
+    Line,
+    Deleted,
+    Log,
+}
 
 #[derive(Debug, Default)]
 pub struct Line {
+    line_type: LineType,
     line_number: usize,
     content: String,
     commit_id: Option<git2::Oid>,
     index_in_hunk: usize,
-    is_deleted: bool,
     is_last_line_in_hunk: bool,
 }
 
@@ -31,10 +39,20 @@ impl Line {
 
     pub fn new_deleted(line_number: usize, commit_id: git2::Oid) -> Self {
         Self {
+            line_type: LineType::Deleted,
             line_number,
             // content: "#deleted#".to_string(),
             commit_id: Some(commit_id),
-            is_deleted: true,
+            ..Default::default()
+        }
+    }
+
+    pub fn new_log(commit: &FileCommit) -> Self {
+        Self {
+            line_type: LineType::Log,
+            line_number: commit.index(),
+            content: commit.summary().cloned().unwrap_or_default(),
+            commit_id: Some(commit.commit_id()),
             ..Default::default()
         }
     }
@@ -93,10 +111,9 @@ impl Line {
         }
 
         let blame = self.left_pane(history)?;
-        let left_pane = if self.is_deleted {
-            format!("    :{blame:25.25}|")
-        } else {
-            format!("{number:4}:{blame:25.25}|", number = self.line_number)
+        let left_pane = match self.line_type {
+            LineType::Line | LineType::Log => format!("{:4}:{blame:25.25}|", self.line_number),
+            LineType::Deleted => format!("    :{blame:25.25}|"),
         };
         let left_pane_len = left_pane.len();
         queue!(out, style::Print(left_pane))?;
@@ -110,23 +127,25 @@ impl Line {
         }
 
         let max_main_pane = max_columns.saturating_sub(left_pane_len);
-        if self.is_deleted {
-            let content = "##deleted##";
-            queue!(
-                out,
-                style::SetForegroundColor(style::Color::DarkGrey),
-                style::Print(content),
-                style::ResetColor,
-            )?;
-        } else {
-            let mut content = self.content.as_str();
-            content = match content.char_indices().nth(max_main_pane) {
-                None => content,
-                Some((idx, _)) => &content[..idx],
-            };
-            queue!(out, style::Print(content))?;
+        match self.line_type {
+            LineType::Line | LineType::Log => {
+                let mut content = self.content.as_str();
+                content = match content.char_indices().nth(max_main_pane) {
+                    None => content,
+                    Some((idx, _)) => &content[..idx],
+                };
+                queue!(out, style::Print(content))?;
+            }
+            LineType::Deleted => {
+                let content = "##deleted##";
+                queue!(
+                    out,
+                    style::SetForegroundColor(style::Color::DarkGrey),
+                    style::Print(content),
+                    style::ResetColor,
+                )?;
+            }
         }
-
         Ok(())
     }
 
@@ -134,15 +153,23 @@ impl Line {
         let left_pane = if let Some(commit_id) = self.commit_id {
             let commit = history.commits().get_by_commit_id(commit_id)?;
             match self.index_in_hunk {
-                0 => format!(
-                    "#{} {}",
-                    commit.index(),
-                    commit.time().to_local_date_time().map_or_else(
+                0 => {
+                    let datetime = commit.time().to_local_date_time().map_or_else(
                         |e| format!("Invalid date/time: {e}"),
                         |datetime| datetime.format("%Y-%m-%d %H:%M").to_string(),
-                    )
-                )
-                .into(),
+                    );
+                    match self.line_type {
+                        LineType::Line | LineType::Deleted => {
+                            format!("#{} {}", commit.index(), datetime)
+                        }
+                        LineType::Log => format!(
+                            "{} {}",
+                            datetime,
+                            to_cow(commit.author_email().map(|s| s.to_string()))
+                        ),
+                    }
+                    .into()
+                }
                 1 => to_cow(commit.summary().map(|s| format!("  {}", s))),
                 2 => to_cow(commit.author_email().map(|s| format!("  {}", s))),
                 3 => format!("  {}", commit.commit_id()).into(),

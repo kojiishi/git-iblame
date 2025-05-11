@@ -10,7 +10,14 @@ use crate::extensions::GitTools;
 
 use super::{DiffPart, FileCommit, FileHistory, Line, LineNumberMap};
 
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub enum ContentType {
+    File,
+    Log,
+}
+
 pub struct FileContent {
+    content_type: ContentType,
     commit_id: git2::Oid,
     path: PathBuf,
     lines: Vec<Line>,
@@ -21,6 +28,18 @@ pub struct FileContent {
 impl FileContent {
     pub fn new(commit_id: git2::Oid, path: &Path) -> Self {
         Self {
+            content_type: ContentType::File,
+            commit_id,
+            path: path.to_path_buf(),
+            lines: vec![],
+            current_line_index: 0,
+            applied_commits_len: 0,
+        }
+    }
+
+    pub fn new_log(commit_id: git2::Oid, path: &Path) -> Self {
+        Self {
+            content_type: ContentType::Log,
             commit_id,
             path: path.to_path_buf(),
             lines: vec![],
@@ -32,6 +51,10 @@ impl FileContent {
     #[cfg(test)]
     pub fn new_for_test() -> Self {
         Self::new(git2::Oid::zero(), Path::new(""))
+    }
+
+    pub fn content_type(&self) -> ContentType {
+        self.content_type
     }
 
     pub fn commit_id(&self) -> git2::Oid {
@@ -215,6 +238,13 @@ impl FileContent {
     }
 
     pub fn update_commits(&mut self, history: &FileHistory) -> anyhow::Result<()> {
+        match self.content_type {
+            ContentType::File => self.update_file(history),
+            ContentType::Log => self.update_logs(history),
+        }
+    }
+
+    fn update_file(&mut self, history: &FileHistory) -> anyhow::Result<()> {
         let commits = history.commits();
         debug!(
             "update_commits: applied={}, #={}",
@@ -356,6 +386,17 @@ impl FileContent {
             last_line = Some(line);
             last_commit_id = commit_id;
         }
+    }
+
+    fn update_logs(&mut self, history: &FileHistory) -> anyhow::Result<()> {
+        self.lines.clear();
+        let commits = history.commits();
+        assert!(!commits.is_empty());
+        for commit in commits {
+            let line = Line::new_log(commit);
+            self.lines.push(line);
+        }
+        Ok(())
     }
 }
 
