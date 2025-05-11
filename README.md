@@ -22,8 +22,8 @@ up to the initial commit.
 Features:
 
 * The interactive "current line" specifies the line of your interests.
-* Easy and instant traversal to older or newer trees of the line interactively.
-* Inspect the commit or the diff that inserted the line.
+* Easy and instant traversals to older or newer trees of the line.
+* Inspect the commit that modified the line.
 * Deleted lines are also shown for inspections.
 
 The `git-iblame` is built for speed.
