@@ -26,25 +26,21 @@ Features:
 * Inspect the commit that modified the line.
 * Deleted lines are also shown for inspections.
 
-The `git-iblame` is built for speed.
-Computing all the history of a file is an expensive task,
-especially when the repository is large.
-
-To make the traversals of the large history responsive,
-the `git-iblame` has its own file history engine.
-This engine is built on top of the fundamental git operations
-provided by the [git2]/[libgit2],
-without using the logic in the [`git blame`].
-
-The engine runs in background to make `git-iblame` responsive.
+The `git-iblame` is built for responsive interaction.
+Lengthy operations such as
+computing all the history of a file runs in background.
 Old annotations which takes time to read from the disk
 come up incrementally while you are browsing.
 
-When browsing older or newer trees, the `git-iblame`'s engine
-can re-compute the history for the trees instantly
-from its own data structure in memory,
-unlike the [`git blame`] which
-reads the data from the disk each time it is ran.
+To make the traversals of the history responsive,
+especially for large repositories,
+the `git-iblame` has its own file history engine.
+This engine is built on top of the fundamental git operations
+without using the logic in the [`git blame`].
+
+When traversing to older or newer trees,
+the `git-iblame`'s engine can re-compute the history for the trees instantly
+from its own data structure in memory.
 
 [`git blame`]: https://git-scm.com/docs/git-blame
 [git2]: https://docs.rs/git2/latest/git2/
