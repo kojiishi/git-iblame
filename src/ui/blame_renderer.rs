@@ -219,8 +219,8 @@ impl BlameRenderer {
         if current_file_only {
             let commit = self.history.commits().get_by_commit_id(commit_id)?;
             paths.push(commit.path());
-            if commit.is_renamed() {
-                paths.push(commit.old_path().unwrap());
+            if let Some(old_path) = commit.old_path_if_rename() {
+                paths.push(old_path);
             }
         }
         self.git().show(commit_id, &paths)?;

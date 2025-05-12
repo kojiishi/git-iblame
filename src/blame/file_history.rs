@@ -159,8 +159,7 @@ impl FileHistory {
             trace!("Commit ID: {:?}, Path: {:?}", commit_id, path);
             let mut diff = FileCommit::new(commit_id, &path);
             diff.read(&git)?;
-            if diff.is_renamed() {
-                let old_path = diff.old_path().unwrap();
+            if let Some(old_path) = diff.old_path_if_rename() {
                 debug!("read_thread: rename detected {:?} -> {:?}", old_path, path);
                 path = old_path.to_path_buf();
             }
