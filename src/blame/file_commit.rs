@@ -125,13 +125,13 @@ impl FileCommit {
                     anyhow::bail!(
                         "Invalid UTF-8: {} \"{}\"",
                         line.len(),
-                        buffer.to_lossy_string()
+                        buffer.to_string_lossy()
                     );
                 } else {
                     warn!(
                         "Invalid UTF-8: {} \"{}\"",
                         line.len(),
-                        buffer.to_lossy_string()
+                        buffer.to_string_lossy()
                     );
                 }
             }

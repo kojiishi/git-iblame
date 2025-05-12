@@ -25,12 +25,16 @@ impl<R: BufRead> GitDiffLine<R> {
         self.invalid_len
     }
 
+    fn total_len(&self) -> usize {
+        self.valid_len + self.invalid_len
+    }
+
     pub fn as_str(&self) -> &str {
         unsafe { std::str::from_utf8_unchecked(&self.buffer[..self.valid_len]) }
     }
 
-    pub fn to_lossy_string(&self) -> Cow<'_, str> {
-        String::from_utf8_lossy(&self.buffer[..self.valid_len])
+    pub fn to_string_lossy(&self) -> Cow<'_, str> {
+        String::from_utf8_lossy(&self.buffer[..self.total_len()])
     }
 
     pub fn next_line(&mut self) -> io::Result<bool> {
