@@ -131,6 +131,7 @@ impl FileCommit {
             None,
             Some(&mut |delta, hunk, line| {
                 if !DiffReadContext::is_path(&delta, path) {
+                    // trace!("line: {delta:?}, not interesting");
                     return true;
                 }
                 let hunk = hunk.unwrap();
@@ -207,6 +208,7 @@ impl DiffReadContext {
         new_line_number: Option<u32>,
         num_lines: u32,
     ) {
+        // https://docs.rs/git2/latest/git2/struct.DiffLine.html#method.origin
         match origin {
             ' ' => {
                 assert!(old_line_number.is_some());
@@ -229,8 +231,9 @@ impl DiffReadContext {
                 assert_eq!(num_lines, 1);
                 self.part.old.add_line(old_line_number.unwrap() as usize);
             }
+            '<' => {},
             _ => {
-                trace!("origin {:?} skipped", origin);
+                debug!("origin {:?} skipped", origin);
             }
         }
     }
