@@ -219,7 +219,8 @@ impl DiffReadContext {
             '+' => {
                 assert!(old_line_number.is_none());
                 assert!(new_line_number.is_some());
-                assert_eq!(num_lines, 1);
+                // `num_lines` is normally 1, but could be 0 if no newline.
+                assert!(num_lines <= 1, "{num_lines} {self:?}");
                 self.part.new.add_line(new_line_number.unwrap() as usize);
             }
             '-' => {
@@ -265,7 +266,35 @@ mod tests {
 
         let mut file_commit = FileCommit::new(commit_id2, path);
         file_commit.read(&git.git)?;
-        assert_eq!(file_commit.diff_parts, [DiffPart::from_ranges(3..4, 3..6),]);
+        assert_eq!(file_commit.diff_parts, [DiffPart::from_ranges(3..4, 3..6)]);
+        assert_eq!(file_commit.old_path_if_rename(), None);
+        Ok(())
+    }
+
+    #[test]
+    fn git_add_file_no_newline() -> anyhow::Result<()> {
+        // Create a dummy initial commit to avoid "no parent" code path.
+        let git = TempRepository::new()?;
+        git.add_file_content(Path::new("initial.txt"), "initial")?;
+        let commit_id1 = git.commit(git2::Oid::zero(), "Initial")?;
+
+        // Note no new line at end of file.
+        let path = Path::new("test.txt");
+        git.add_file_content(path, "1\n2\n3\n4\n5")?;
+        let commit_id2 = git.commit(commit_id1, "Add file")?;
+
+        let mut file_commit = FileCommit::new(commit_id2, path);
+        file_commit.read(&git.git)?;
+        assert_eq!(file_commit.diff_parts, [DiffPart::from_ranges(0..0, 1..6)]);
+        assert_eq!(file_commit.old_path_if_rename(), None);
+
+        // Add the newline at the end of file.
+        git.add_file_content(path, "1\n2\n3\n4\n5\n")?;
+        let commit_id3 = git.commit(commit_id2, "Add newline")?;
+
+        let mut file_commit = FileCommit::new(commit_id3, path);
+        file_commit.read(&git.git)?;
+        assert_eq!(file_commit.diff_parts, []);
         assert_eq!(file_commit.old_path_if_rename(), None);
         Ok(())
     }
