@@ -17,6 +17,10 @@ use super::*;
 #[derive(Debug, Default, Parser)]
 #[command(version, about)]
 struct Args {
+    /// Use git2 to compute the commit diff.
+    #[arg(long, default_value_t = false)]
+    diff_git2: bool,
+
     /// Path of the file to annotate the history.
     path: PathBuf,
 }
@@ -43,6 +47,9 @@ pub struct Cli {
 impl Cli {
     pub fn new_from_args() -> Self {
         let args = Args::parse();
+        if args.diff_git2 {
+            crate::blame::FileCommit::use_git2();
+        }
         Self {
             path: args.path,
             ..Default::default()

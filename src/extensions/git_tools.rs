@@ -81,12 +81,14 @@ impl GitTools {
     /// Get the content of a `path` at the tree of the `commit_id` as a string.
     /// If `commit_id` is zero, the `head` is used.
     pub fn content_as_string(&self, commit_id: git2::Oid, path: &Path) -> anyhow::Result<String> {
+        debug!("content_as_string: {commit_id} {path:?}");
         let commit = if commit_id.is_zero() {
             self.repository.head()?.peel_to_commit()?
         } else {
             self.repository.find_commit(commit_id)?
         };
         let tree = commit.tree()?;
+        trace!("content_as_string: tree={}", tree.id());
         let entry = tree.get_path(path)?;
         let object = entry.to_object(&self.repository)?;
         // https://github.com/rust-lang/git2-rs/issues/1156
@@ -96,18 +98,25 @@ impl GitTools {
 
     pub fn show(&self, commit_id: git2::Oid, paths: &[&Path]) -> anyhow::Result<()> {
         debug!("git-show: {commit_id} {paths:?}");
-        let mut command = std::process::Command::new("git");
-        command.current_dir(self.repository_path());
-        command.arg("show").arg(commit_id.to_string());
+        let mut command = self.create_show_command(commit_id);
+        let mut child = command.spawn()?;
         if !paths.is_empty() {
             command.arg("--");
             for path in paths {
                 command.arg(path);
             }
         }
-        let mut child = command.spawn()?;
         child.wait()?;
         Ok(())
+    }
+
+    pub fn create_show_command(&self, commit_id: git2::Oid) -> std::process::Command {
+        let mut command = std::process::Command::new("git");
+        command
+            .current_dir(self.repository_path())
+            .arg("show")
+            .arg(commit_id.to_string());
+        command
     }
 }
 
