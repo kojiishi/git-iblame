@@ -6,7 +6,7 @@ use std::{
 use log::*;
 use regex::Regex;
 
-use crate::{blame::GitDiffLine, extensions::GitTools};
+use crate::extensions::{GitTools, LineReadBuffer};
 
 use super::DiffPart;
 
@@ -108,8 +108,8 @@ impl FileCommit {
         let mut command = git.create_show_command(commit_id);
         let mut child = command.stdout(std::process::Stdio::piped()).spawn()?;
         let stdout = child.stdout.take().unwrap();
-        let reader = BufReader::new(stdout);
-        let mut buffer = GitDiffLine::new(reader);
+        let mut reader = BufReader::new(stdout);
+        let mut buffer = LineReadBuffer::new();
         let re_file = Regex::new(r"^diff --git a/(.+) b/(.+)$")?;
         let re_hunk = Regex::new(r"^@@ -(\d+),(\d+) \+(\d+),(\d+) @@")?;
 
@@ -118,22 +118,12 @@ impl FileCommit {
         let mut is_path_found = false;
         let mut old_path: Option<PathBuf> = None;
         let mut context = DiffReadContext::default();
-        while buffer.next_line()? {
-            let line = buffer.as_str();
-            if buffer.invalid_len() > 0 {
-                if line.is_empty() || line.starts_with("diff ") || line.starts_with("@@ ") {
-                    anyhow::bail!(
-                        "Invalid UTF-8: {} \"{}\"",
-                        line.len(),
-                        buffer.to_string_lossy()
-                    );
-                } else {
-                    warn!(
-                        "Invalid UTF-8: {} \"{}\"",
-                        line.len(),
-                        buffer.to_string_lossy()
-                    );
-                }
+        while buffer.read_line_from(&mut reader)? {
+            let line = buffer.as_ref();
+            if buffer.invalid_len() > 0
+                && (line.is_empty() || line.starts_with("diff ") || line.starts_with("@@ "))
+            {
+                return Err(buffer.error());
             }
             if let Some(captures) = re_file.captures(line) {
                 if is_path_found {

@@ -13,9 +13,6 @@ pub use file_commit::*;
 mod file_content;
 pub use file_content::*;
 
-mod git_diff_line;
-pub use git_diff_line::*;
-
 mod file_history;
 pub use file_history::*;
 

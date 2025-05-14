@@ -3,22 +3,30 @@ use std::{
     io::{self, BufRead},
 };
 
-#[derive(Debug)]
-pub struct GitDiffLine<R: BufRead> {
+use log::warn;
+
+#[derive(Debug, Default)]
+pub struct LineReadBuffer {
     buffer: Vec<u8>,
     valid_len: usize,
     invalid_len: usize,
-    inner: R,
 }
 
-impl<R: BufRead> GitDiffLine<R> {
-    pub fn new(inner: R) -> Self {
+impl LineReadBuffer {
+    pub fn new() -> Self {
         Self {
             buffer: vec![],
             valid_len: 0,
             invalid_len: 0,
-            inner,
         }
+    }
+
+    fn as_str(&self) -> &str {
+        unsafe { std::str::from_utf8_unchecked(&self.buffer[..self.valid_len]) }
+    }
+
+    pub fn to_string_lossy(&self) -> Cow<'_, str> {
+        String::from_utf8_lossy(&self.buffer[..self.total_len()])
     }
 
     pub fn invalid_len(&self) -> usize {
@@ -29,17 +37,18 @@ impl<R: BufRead> GitDiffLine<R> {
         self.valid_len + self.invalid_len
     }
 
-    pub fn as_str(&self) -> &str {
-        unsafe { std::str::from_utf8_unchecked(&self.buffer[..self.valid_len]) }
+    pub fn error(&self) -> anyhow::Error {
+        assert!(self.invalid_len > 0);
+        anyhow::anyhow!(
+            "Invalid UTF-8 at {}: \"{}\"",
+            self.valid_len,
+            self.to_string_lossy()
+        )
     }
 
-    pub fn to_string_lossy(&self) -> Cow<'_, str> {
-        String::from_utf8_lossy(&self.buffer[..self.total_len()])
-    }
-
-    pub fn next_line(&mut self) -> io::Result<bool> {
+    pub fn read_line_from(&mut self, reader: &mut impl BufRead) -> io::Result<bool> {
         self.buffer.clear();
-        let mut len = self.inner.read_until(b'\n', &mut self.buffer)?;
+        let mut len = reader.read_until(b'\n', &mut self.buffer)?;
         if len == 0 {
             return Ok(false);
         }
@@ -55,8 +64,15 @@ impl<R: BufRead> GitDiffLine<R> {
             Err(error) => {
                 self.valid_len = error.valid_up_to();
                 self.invalid_len = len - self.valid_len;
+                warn!("{}", self.error());
             }
         }
         Ok(true)
+    }
+}
+
+impl AsRef<str> for LineReadBuffer {
+    fn as_ref(&self) -> &str {
+        self.as_str()
     }
 }
