@@ -99,13 +99,13 @@ impl GitTools {
     pub fn show(&self, commit_id: git2::Oid, paths: &[&Path]) -> anyhow::Result<()> {
         debug!("git-show: {commit_id} {paths:?}");
         let mut command = self.create_show_command(commit_id);
-        let mut child = command.spawn()?;
         if !paths.is_empty() {
             command.arg("--");
             for path in paths {
                 command.arg(path);
             }
         }
+        let mut child = command.spawn()?;
         child.wait()?;
         Ok(())
     }
