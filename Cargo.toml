@@ -8,7 +8,7 @@ keywords = ["git", "blame", "command", "command-line-tool", "cli"]
 repository = "https://github.com/kojiishi/git-iblame"
 readme = "README.md"
 license = "Apache-2.0"
-exclude = [".github", ".gitignore"]
+exclude = [".github", ".gitignore", "hooks", ".vscode"]
 
 [dependencies]
 anyhow = "1.0.98"
