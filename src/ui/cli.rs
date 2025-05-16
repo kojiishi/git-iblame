@@ -5,7 +5,7 @@ use std::{
 };
 
 use clap::Parser;
-use crossterm::{clipboard::CopyToClipboard, cursor, execute, style, terminal};
+use crossterm::{clipboard::CopyToClipboard, cursor, execute, terminal};
 use git2::Oid;
 use log::debug;
 
@@ -132,19 +132,12 @@ impl Cli {
                 }
             }
             Command::Older => {
-                execute!(
-                    out,
-                    terminal::Clear(terminal::ClearType::All),
-                    cursor::MoveTo(0, 0),
-                    style::Print("Working...")
-                )?;
                 let path_before = renderer.path().to_path_buf();
                 let old_commit_id = renderer.commit_id();
-                renderer
-                    .set_commit_id_to_older_than_current_line()
-                    // Invalidate because the "working" message cleared the screen.
-                    .inspect_err(|_| renderer.invalidate_render())?;
-                self.history.push(old_commit_id);
+                renderer.set_commit_id_to_older_than_current_line()?;
+                if !old_commit_id.is_zero() {
+                    self.history.push(old_commit_id);
+                }
                 if path_before != renderer.path() {
                     ui.set_prompt(format!("Path changed to {}", renderer.path().display()));
                 }
@@ -156,6 +149,13 @@ impl Cli {
                     if path_before != renderer.path() {
                         ui.set_prompt(format!("Path changed to {}", renderer.path().display()));
                     }
+                }
+            }
+            Command::Log => {
+                let old_commit_id = renderer.commit_id();
+                renderer.set_log_content()?;
+                if !old_commit_id.is_zero() {
+                    self.history.push(old_commit_id);
                 }
             }
             Command::Copy => {

@@ -15,6 +15,7 @@ pub enum Command {
     Copy,
     ShowCommit,
     ShowDiff,
+    Log,
     Repaint,
     Resize(u16, u16),
     Help,

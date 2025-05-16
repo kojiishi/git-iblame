@@ -3,6 +3,7 @@ use std::{io::Write, ops::Range, path::Path};
 use anyhow::bail;
 use crossterm::{cursor, queue, terminal};
 use git2::Oid;
+use log::debug;
 
 use crate::{
     blame::*,
@@ -190,27 +191,51 @@ impl BlameRenderer {
     }
 
     pub fn set_commit_id(&mut self, commit_id: Oid) -> anyhow::Result<()> {
-        let line_number = self.history.map_line_number_by_commit_ids(
-            self.current_line_number(),
-            commit_id,
-            self.commit_id(),
-        )?;
         let mut content = self.history().content(commit_id)?;
-        content.set_current_line_number(line_number)?;
+        match self.content.content_type() {
+            ContentType::File => {
+                let line_number = self.history.map_line_number_by_commit_ids(
+                    self.current_line_number(),
+                    commit_id,
+                    self.commit_id(),
+                )?;
+                content.set_current_line_number(line_number)?;
+            }
+            ContentType::Log => {}
+        }
         self.swap_content(&mut content);
         Ok(())
     }
 
     pub fn set_commit_id_to_older_than_current_line(&mut self) -> anyhow::Result<()> {
+        let mut commit_id = self.current_line_commit_id()?;
+        debug!("set_commit_id_to_older_than_current_line: {commit_id:?}");
+        match self.content.content_type() {
+            ContentType::File => {
+                let commit_index = self.history.commits().index_from_commit_id(commit_id)?;
+                let parent_commit_index = commit_index + 1;
+                if parent_commit_index >= self.history.commits().len() {
+                    bail!("No commits before {commit_id}");
+                }
+                let parent_commit = self.history.commit(parent_commit_index);
+                commit_id = parent_commit.commit_id();
+            }
+            ContentType::Log => {}
+        };
+        self.set_commit_id(commit_id)
+    }
+
+    pub fn set_log_content(&mut self) -> anyhow::Result<()> {
+        if self.content.content_type() == ContentType::Log {
+            return Ok(());
+        }
         let commit_id = self.current_line_commit_id()?;
         let commit_index = self.history.commits().index_from_commit_id(commit_id)?;
-        let parent_commit_index = commit_index + 1;
-        if parent_commit_index >= self.history.commits().len() {
-            bail!("No commits before {commit_id}");
-        }
-        let parent_commit = self.history.commit(parent_commit_index);
-        let parent_commit_id = parent_commit.commit_id();
-        self.set_commit_id(parent_commit_id)
+        let mut content = FileContent::new_log(git2::Oid::zero(), self.path());
+        content.update_commits(&self.history)?;
+        content.set_current_line_index(commit_index);
+        self.swap_content(&mut content);
+        Ok(())
     }
 
     pub fn show_current_line_commit(&mut self, current_file_only: bool) -> anyhow::Result<()> {

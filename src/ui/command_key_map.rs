@@ -107,6 +107,7 @@ impl CommandKeyMap {
 
             ((KeyCode::Char('c'), KeyModifiers::NONE), Command::Copy),
             ((KeyCode::Char('d'), KeyModifiers::NONE), Command::ShowDiff),
+            ((KeyCode::Char('l'), KeyModifiers::NONE), Command::Log),
             ((KeyCode::Enter, KeyModifiers::CONTROL), Command::ShowDiff),
             ((KeyCode::Char('s'), KeyModifiers::NONE), Command::ShowCommit),
 
@@ -151,6 +152,7 @@ impl CommandKeyMap {
             ("#COMMITS", Command::ShowCommit),
             ("Show the current line commit.", Command::ShowCommit),
             ("Show the current file of the current line commit.", Command::ShowDiff),
+            ("Show the list of commits.", Command::Log),
             ("Copy the current line commit ID to clipboard.", Command::Copy),
 
             ("#TRAVERSING TREES", Command::Older),
