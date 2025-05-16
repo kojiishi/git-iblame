@@ -1,4 +1,4 @@
-use std::{fmt, io::Write};
+use std::{borrow::Cow, fmt, io::Write};
 
 use crossterm::{queue, style};
 
@@ -14,6 +14,10 @@ pub struct Line {
     index_in_hunk: usize,
     is_deleted: bool,
     is_last_line_in_hunk: bool,
+}
+
+fn to_cow(value: Option<String>) -> Cow<'static, str> {
+    value.map_or("".into(), |s| s.into())
 }
 
 impl Line {
@@ -88,29 +92,7 @@ impl Line {
             should_reset = true;
         }
 
-        let blame = if let Some(commit_id) = self.commit_id {
-            let commit = history.commits().get_by_commit_id(commit_id)?;
-            match self.index_in_hunk {
-                0 => format!(
-                    "#{} {}",
-                    commit.index(),
-                    commit.time().to_local_date_time().map_or_else(
-                        |e| format!("Invalid date/time: {e}"),
-                        |datetime| datetime.format("%Y-%m-%d %H:%M").to_string(),
-                    )
-                ),
-                1 => commit
-                    .summary()
-                    .map_or(String::new(), |s| format!("  {}", s)),
-                2 => commit
-                    .author_email()
-                    .map_or(String::new(), |s| format!("  {}", s)),
-                3 => format!("  {}", commit.commit_id()),
-                _ => String::new(),
-            }
-        } else {
-            "...".to_string()
-        };
+        let blame = self.left_pane(history)?;
         let left_pane = if self.is_deleted {
             format!("    :{blame:25.25}|")
         } else {
@@ -146,5 +128,29 @@ impl Line {
         }
 
         Ok(())
+    }
+
+    fn left_pane(&self, history: &FileHistory) -> anyhow::Result<Cow<'static, str>> {
+        let left_pane = if let Some(commit_id) = self.commit_id {
+            let commit = history.commits().get_by_commit_id(commit_id)?;
+            match self.index_in_hunk {
+                0 => format!(
+                    "#{} {}",
+                    commit.index(),
+                    commit.time().to_local_date_time().map_or_else(
+                        |e| format!("Invalid date/time: {e}"),
+                        |datetime| datetime.format("%Y-%m-%d %H:%M").to_string(),
+                    )
+                )
+                .into(),
+                1 => to_cow(commit.summary().map(|s| format!("  {}", s))),
+                2 => to_cow(commit.author_email().map(|s| format!("  {}", s))),
+                3 => format!("  {}", commit.commit_id()).into(),
+                _ => "".into(),
+            }
+        } else {
+            "...".into()
+        };
+        Ok(left_pane)
     }
 }
