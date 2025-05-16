@@ -7,6 +7,9 @@ pub use git2_time_to_chrono_ext::*;
 mod line_read_buffer;
 pub(crate) use line_read_buffer::*;
 
+mod or_default;
+pub(crate) use or_default::*;
+
 mod range_ext;
 pub use range_ext::*;
 

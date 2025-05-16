@@ -2,7 +2,7 @@ use std::{borrow::Cow, fmt, io::Write};
 
 use crossterm::{queue, style};
 
-use crate::extensions::Git2TimeToChronoExt;
+use crate::extensions::{Git2TimeToChronoExt, OrDefault};
 
 use super::{FileCommit, FileHistory};
 
@@ -22,10 +22,6 @@ pub struct Line {
     commit_id: Option<git2::Oid>,
     index_in_hunk: usize,
     is_last_line_in_hunk: bool,
-}
-
-fn to_cow(value: Option<String>) -> Cow<'static, str> {
-    value.map_or("".into(), |s| s.into())
 }
 
 impl Line {
@@ -162,16 +158,17 @@ impl Line {
                         LineType::Line | LineType::Deleted => {
                             format!("#{} {}", commit.index(), datetime)
                         }
-                        LineType::Log => format!(
-                            "{} {}",
-                            datetime,
-                            to_cow(commit.author_email().map(|s| s.to_string()))
-                        ),
+                        LineType::Log => {
+                            format!("{} {}", datetime, commit.author_email().or_default())
+                        }
                     }
                     .into()
                 }
-                1 => to_cow(commit.summary().map(|s| format!("  {}", s))),
-                2 => to_cow(commit.author_email().map(|s| format!("  {}", s))),
+                1 => commit.summary().map(|s| format!("  {}", s)).or_default(),
+                2 => commit
+                    .author_email()
+                    .map(|s| format!("  {}", s))
+                    .or_default(),
                 3 => format!("  {}", commit.commit_id()).into(),
                 _ => "".into(),
             }
