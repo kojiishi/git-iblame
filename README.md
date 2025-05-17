@@ -25,6 +25,7 @@ Features:
 * Easy and instant traversals to older or newer trees of the line.
 * Inspect the commit that modified the line.
 * Deleted lines are also shown for inspections.
+* See all commits that modifies the file.
 
 The `git-iblame` is built for responsive interaction.
 Lengthy operations such as
