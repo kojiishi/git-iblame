@@ -391,7 +391,6 @@ impl FileContent {
     fn update_logs(&mut self, history: &FileHistory) -> anyhow::Result<()> {
         self.lines.clear();
         let commits = history.commits();
-        assert!(!commits.is_empty());
         for commit in commits {
             let line = Line::new_log(commit);
             self.lines.push(line);

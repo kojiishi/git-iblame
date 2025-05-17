@@ -229,11 +229,15 @@ impl BlameRenderer {
         if self.content.content_type() == ContentType::Log {
             return Ok(());
         }
-        let commit_id = self.current_line_commit_id()?;
-        let commit_index = self.history.commits().index_from_commit_id(commit_id)?;
         let mut content = FileContent::new_log(git2::Oid::zero(), self.path());
         content.update_commits(&self.history)?;
-        content.set_current_line_index(commit_index);
+        if content.lines_len() == 0 {
+            anyhow::bail!("No commits loaded yet")
+        }
+        if let Some(commit_id) = self.current_line().commit_id() {
+            let commit_index = self.history.commits().index_from_commit_id(commit_id)?;
+            content.set_current_line_index(commit_index);
+        }
         self.swap_content(&mut content);
         Ok(())
     }
