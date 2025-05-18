@@ -74,7 +74,7 @@ impl Cli {
 
         let mut ui = CommandUI::new();
         let mut out = stdout();
-        let mut terminal_raw_mode = TerminalRawModeScope::new(true)?;
+        let mut terminal_raw_mode = TerminalRawModeScope::new_with_alternate_screen()?;
         loop {
             let result = renderer.render(&mut out);
             ui.set_result(result);
