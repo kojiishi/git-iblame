@@ -1,6 +1,6 @@
 use std::io;
 
-use crossterm::terminal;
+use crossterm::{execute, terminal};
 use log::*;
 
 /// Enable or disable the
@@ -23,8 +23,10 @@ use log::*;
 /// # Ok(())
 /// # }
 /// ```
+#[derive(Debug)]
 pub struct TerminalRawModeScope {
     is_enabled: bool,
+    is_alt_screen_enabled: bool,
     is_reset: bool,
 }
 
@@ -35,6 +37,19 @@ impl TerminalRawModeScope {
         Self::enable(enable)?;
         Ok(Self {
             is_enabled: enable,
+            is_alt_screen_enabled: false,
+            is_reset: false,
+        })
+    }
+
+    /// Switches to the alternate screen, in addition to the raw mode.
+    /// See `crossterm::terminal::EnterAlternateScreen`.
+    pub fn new_with_alternate_screen() -> io::Result<Self> {
+        Self::enable(true)?;
+        Self::enable_alternate_screen(true)?;
+        Ok(Self {
+            is_enabled: true,
+            is_alt_screen_enabled: true,
             is_reset: false,
         })
     }
@@ -47,10 +62,14 @@ impl TerminalRawModeScope {
     /// and that the `Drop` trait should reset the raw mode,
     /// it should be called to avoid it being dropped earlier by the compiler.
     pub fn reset(&mut self) -> io::Result<()> {
-        if !self.is_reset {
-            Self::enable(!self.is_enabled)?;
-            self.is_reset = true;
+        if self.is_reset {
+            return Ok(());
         }
+        Self::enable(!self.is_enabled)?;
+        if self.is_alt_screen_enabled {
+            Self::enable_alternate_screen(false)?;
+        }
+        self.is_reset = true;
         Ok(())
     }
 
@@ -60,6 +79,15 @@ impl TerminalRawModeScope {
             terminal::enable_raw_mode()
         } else {
             terminal::disable_raw_mode()
+        }
+    }
+
+    fn enable_alternate_screen(enable: bool) -> io::Result<()> {
+        debug!("TerminalRawModeScope.enable_alternate_screen({enable})");
+        if enable {
+            execute!(io::stdout(), terminal::EnterAlternateScreen)
+        } else {
+            execute!(io::stdout(), terminal::LeaveAlternateScreen)
         }
     }
 }
