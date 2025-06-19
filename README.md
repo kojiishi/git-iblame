@@ -88,9 +88,8 @@ the `<path-to-file>` can be a relative path to a repository.
 In this case, the current directory must be in the repository.
 For example, following two `git-iblame` commands open the same file.
 ```shell-session
-cd ~/src/repository
-git-iblame file-at-repo-root.txt
-cd ./some/sub/directory
+git-iblame ~/src/repository/file-at-repo-root.txt
+cd ~/src/repository/some/sub/directory
 git-iblame file-at-repo-root.txt
 ```
 
@@ -115,6 +114,6 @@ Major commands are:
 
 # Change History
 
-Please see [release notes].
+Please see the [release notes].
 
 [release notes]: https://github.com/kojiishi/git-iblame/releases
