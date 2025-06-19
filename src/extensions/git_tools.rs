@@ -38,7 +38,8 @@ impl GitTools {
             .workdir()
             .ok_or_else(|| anyhow!("Bare repository is not supported"))?
             .canonicalize()?;
-        log::debug!("git.repository: {:?} {workdir_path:?}", repository.path());
+        log::debug!("git.repository: {:?}", repository.path());
+        log::debug!("git.workdir: {workdir_path:?}");
         Ok(Self {
             repository,
             workdir_path,
