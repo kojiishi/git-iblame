@@ -50,8 +50,8 @@ impl FileHistory {
 
     fn ensure_git(&mut self) -> anyhow::Result<()> {
         if self.git.is_none() {
-            let git = GitTools::from_file_path(&self.path)?;
-            self.path = git.path_in_workdir(&self.path)?;
+            let (git, path) = GitTools::from_file_or_relative_path(&self.path)?;
+            self.path = path;
             self.git = Some(git);
         }
         Ok(())
