@@ -34,11 +34,14 @@ impl GitTools {
     }
 
     fn from_repository(repository: git2::Repository) -> anyhow::Result<Self> {
-        let git_path = repository.path().canonicalize()?;
-        let workdir_path = git_path.parent().unwrap();
+        let workdir_path = repository
+            .workdir()
+            .ok_or_else(|| anyhow!("Bare repository is not supported"))?
+            .canonicalize()?;
+        log::debug!("git.repository: {:?} {workdir_path:?}", repository.path());
         Ok(Self {
             repository,
-            workdir_path: workdir_path.to_path_buf(),
+            workdir_path,
         })
     }
 
@@ -53,7 +56,7 @@ impl GitTools {
         if path.exists() {
             let git = Self::from_file_path(path)?;
             let path = git.path_in_workdir(path)?;
-            log::debug!("git.repository: {:?} {:?}", git.repository_path(), path);
+            log::debug!("git.path_in_workdir: {:?}", path);
             return Ok((git, path));
         }
         if path.is_relative() {
@@ -61,7 +64,7 @@ impl GitTools {
             let git = Self::from_repository(repository)?;
             let path = git.workdir_path.join(path);
             let path = git.path_in_workdir(&path)?;
-            log::debug!("git.repository: {:?} {:?}", git.repository_path(), path);
+            log::debug!("git.path_in_workdir: {:?}", path);
             return Ok((git, path));
         }
         anyhow::bail!("Path not found: {path:?}");
