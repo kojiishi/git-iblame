@@ -1,4 +1,7 @@
-use std::path::{Path, PathBuf};
+use std::{
+    env,
+    path::{Path, PathBuf},
+};
 
 use anyhow::*;
 use log::*;
@@ -37,6 +40,31 @@ impl GitTools {
             repository,
             workdir_path: workdir_path.to_path_buf(),
         })
+    }
+
+    /// If the `path` exists, this is equivalent to [`from_file_path()`].
+    /// Then returns the `GitTools` and the result of [`path_in_workdir()`].
+    ///
+    /// Otherwise, if the `path` is relative,
+    /// find the git repository from the current directory.
+    /// The `path` is then converted to
+    /// the relative path to the work directory of the repository.
+    pub fn from_file_or_relative_path(path: &Path) -> anyhow::Result<(Self, PathBuf)> {
+        if path.exists() {
+            let git = Self::from_file_path(path)?;
+            let path = git.path_in_workdir(path)?;
+            log::debug!("git.repository: {:?} {:?}", git.repository_path(), path);
+            return Ok((git, path));
+        }
+        if path.is_relative() {
+            let repository = git2::Repository::discover(env::current_dir()?)?;
+            let git = Self::from_repository(repository)?;
+            let path = git.workdir_path.join(path);
+            let path = git.path_in_workdir(&path)?;
+            log::debug!("git.repository: {:?} {:?}", git.repository_path(), path);
+            return Ok((git, path));
+        }
+        anyhow::bail!("Path not found: {path:?}");
     }
 
     /// Get `git2::Repository`.

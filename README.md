@@ -79,10 +79,22 @@ cargo install --path .
 # Usages
 
 To start an interactive `git blame` session,
-specify the path of the file in a git repository.
+specify the path of an existing file in a git repository.
 ```shell-session
 git-iblame <path-to-file>
 ```
+Alternatively,
+the `<path-to-file>` can be a relative path to a repository.
+In this case, the current directory must be in the repository.
+For example, following two `git-iblame` commands open the same file.
+```shell-session
+cd ~/src/repository
+git-iblame file-at-repo-root.txt
+cd ./some/sub/directory
+git-iblame file-at-repo-root.txt
+```
+
+## Interactive Session
 
 The output is similar to `git blame`,
 with the current line highlighted.
