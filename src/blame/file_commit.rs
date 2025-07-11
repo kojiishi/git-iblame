@@ -333,7 +333,7 @@ impl DiffReadContext {
             }
             '<' => {}
             _ => {
-                debug!("origin {:?} skipped", origin);
+                debug!("origin {origin:?} skipped");
             }
         }
     }

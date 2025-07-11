@@ -164,11 +164,8 @@ impl Line {
                     }
                     .into()
                 }
-                1 => commit.summary().map(|s| format!("  {}", s)).or_default(),
-                2 => commit
-                    .author_email()
-                    .map(|s| format!("  {}", s))
-                    .or_default(),
+                1 => commit.summary().map(|s| format!("  {s}")).or_default(),
+                2 => commit.author_email().map(|s| format!("  {s}")).or_default(),
                 3 => format!("  {}", commit.commit_id()).into(),
                 _ => "".into(),
             }

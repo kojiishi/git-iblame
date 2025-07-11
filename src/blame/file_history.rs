@@ -130,7 +130,7 @@ impl FileHistory {
         self.ensure_git()?;
         let path = self.path.clone();
         let repository_path = self.git().repository_path().to_path_buf();
-        debug!("path: {:?}, repo: {:?}", path, repository_path);
+        debug!("path: {path:?}, repo: {repository_path:?}");
         let (tx, rx) = mpsc::channel::<FileCommit>();
         self.rx = Some(rx);
         self.read_thread = Some(thread::spawn(move || {
@@ -156,11 +156,11 @@ impl FileHistory {
         let git = GitTools::from_repository_path(repository_path)?;
         let mut path = path.to_path_buf();
         for commit_id in &mut commits {
-            trace!("Commit ID: {:?}, Path: {:?}", commit_id, path);
+            trace!("Commit ID: {commit_id:?}, Path: {path:?}");
             let mut diff = FileCommit::new(commit_id, &path);
             diff.read(&git)?;
             if let Some(old_path) = diff.old_path_if_rename() {
-                debug!("read_thread: rename detected {:?} -> {:?}", old_path, path);
+                debug!("read_thread: rename detected {old_path:?} -> {path:?}");
                 path = old_path.to_path_buf();
             }
             tx.send(diff)?;

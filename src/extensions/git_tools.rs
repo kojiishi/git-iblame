@@ -57,7 +57,7 @@ impl GitTools {
         if path.exists() {
             let git = Self::from_file_path(path)?;
             let path = git.path_in_workdir(path)?;
-            log::debug!("git.path_in_workdir: {:?}", path);
+            log::debug!("git.path_in_workdir: {path:?}");
             return Ok((git, path));
         }
         if path.is_relative() {
@@ -65,7 +65,7 @@ impl GitTools {
             let git = Self::from_repository(repository)?;
             let path = git.workdir_path.join(path);
             let path = git.path_in_workdir(&path)?;
-            log::debug!("git.path_in_workdir: {:?}", path);
+            log::debug!("git.path_in_workdir: {path:?}");
             return Ok((git, path));
         }
         anyhow::bail!("Path not found: {path:?}");
