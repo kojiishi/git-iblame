@@ -34,7 +34,7 @@ impl LineNumberMap {
         let mut add = 0;
         let mut sub = 0;
         for part in parts {
-            trace!("new_new_from_old: {:?}", part);
+            trace!("new_new_from_old: {part:?}");
             let (from, to) = get_from_to(part);
             let from_size = from.len();
             let to_size = to.len();

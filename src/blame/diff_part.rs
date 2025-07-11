@@ -38,13 +38,13 @@ impl DiffPart {
             }
             part.old
                 .validate_ascending()
-                .unwrap_or_else(|_| panic!("old start and end aren't ascending: {:?}", part));
+                .unwrap_or_else(|_| panic!("old start and end aren't ascending: {part:?}"));
             if part.new.line_numbers.start < last_new {
                 bail!("new start isn't ascending: {:?}", part);
             }
             part.new
                 .validate_ascending()
-                .unwrap_or_else(|_| panic!("new start and end aren't ascending: {:?}", part));
+                .unwrap_or_else(|_| panic!("new start and end aren't ascending: {part:?}"));
             last_old = part.old.line_numbers.end;
             last_new = part.new.line_numbers.end;
         }

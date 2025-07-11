@@ -24,14 +24,14 @@ impl CommandKeyMap {
         let key_str_from_command = self.key_str_from_command();
         for (help, command) in Self::help_list() {
             if let Some(heading) = help.strip_prefix('#') {
-                println!("\n        {}\n", heading);
+                println!("\n        {heading}\n");
                 continue;
             }
             let key_str = match command {
                 Command::LineNumber(_) => "[number] + Enter".to_string(),
                 _ => key_str_from_command.get(command).unwrap().clone(),
             };
-            println!("  {:<20} {}", key_str, help);
+            println!("  {key_str:<20} {help}");
         }
     }
 
@@ -86,7 +86,7 @@ impl CommandKeyMap {
                 }
             )
         } else {
-            format!("{}+{}", modifiers, key_str)
+            format!("{modifiers}+{key_str}")
         }
     }
 
