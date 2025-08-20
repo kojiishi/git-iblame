@@ -111,10 +111,10 @@ impl CommandUI {
         queue!(out, style::Print(message))?;
         out.flush()?;
         loop {
-            if let event::Event::Key(event) = event::read()? {
-                if !event.is_release() {
-                    break;
-                }
+            if let event::Event::Key(event) = event::read()?
+                && !event.is_release()
+            {
+                break;
             }
         }
         Ok(())

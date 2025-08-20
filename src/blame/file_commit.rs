@@ -225,11 +225,10 @@ impl FileCommit {
                     return true;
                 }
                 trace!("file: {delta:?}");
-                if let Some(delta_old_path) = delta.old_file().path() {
-                    if delta_old_path != path {
+                if let Some(delta_old_path) = delta.old_file().path()
+                    && delta_old_path != path {
                         old_path = Some(delta_old_path.to_path_buf());
                     }
-                }
                 true
             },
             None,
@@ -265,10 +264,10 @@ impl FileCommit {
         )?;
         context.flush_part();
 
-        if let Some(old_path) = old_path {
-            if old_path != self.path() {
-                self.old_path = Some(old_path);
-            }
+        if let Some(old_path) = old_path
+            && old_path != self.path()
+        {
+            self.old_path = Some(old_path);
         }
         self.diff_parts = context.parts;
         debug!("read_by_git2.done: elapsed {:?}", start_time.elapsed());
