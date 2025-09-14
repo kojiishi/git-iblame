@@ -187,7 +187,10 @@ impl Cli {
                 CommandUI::wait_for_any_key("Press any key to continue...")?;
             }
             Command::Timeout => renderer.read_poll()?,
-            Command::Repaint => renderer.invalidate_render(),
+            Command::Repaint => {
+                renderer.invalidate_render();
+                renderer.scroll_current_line_to_center_of_view();
+            }
             Command::Resize(columns, rows) => renderer.set_view_size((columns, rows - 1)),
             Command::Debug => {
                 let commit_id = renderer.current_line_commit_id()?;
