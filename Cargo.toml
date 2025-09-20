@@ -2,6 +2,7 @@
 name = "git-iblame"
 version = "0.8.4"
 edition = "2024"
+rust-version = "1.89"
 authors = ["Koji Ishii <kojiishi@gmail.com>"]
 description = "Interactive enhanced `git blame` command line tool."
 keywords = ["git", "blame", "command", "command-line-tool", "cli"]
