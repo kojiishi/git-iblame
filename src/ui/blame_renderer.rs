@@ -169,15 +169,19 @@ impl BlameRenderer {
 
     pub fn scroll_current_line_to_center_of_view(&mut self) {
         let view_rows = self.view_rows() as usize;
+        let content_lines_len = self.content.lines_len();
+        if content_lines_len <= view_rows {
+            return;
+        }
         let view_rows_half = view_rows / 2;
         let line_index = self.current_line_index();
         if line_index < view_rows_half {
             self.view_start_line_index = 0;
             return;
         }
-        let max_view_start_line_index = self.content.lines_len() - view_rows;
-        self.view_start_line_index =
-            cmp::min(line_index - view_rows_half, max_view_start_line_index);
+        let view_start_line_index = line_index - view_rows_half;
+        let max_view_start_line_index = content_lines_len - view_rows;
+        self.view_start_line_index = cmp::min(view_start_line_index, max_view_start_line_index);
     }
 
     pub fn commit_id(&self) -> Oid {
