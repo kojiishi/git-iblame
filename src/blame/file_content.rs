@@ -8,7 +8,7 @@ use log::*;
 
 use crate::extensions::GitTools;
 
-use super::{DiffPart, FileCommit, FileHistory, Line, LineNumberMap};
+use super::{BlameError, DiffPart, FileCommit, FileHistory, Line, LineNumberMap};
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum ContentType {
@@ -341,7 +341,7 @@ impl FileContent {
         let new_line_numbers = part.new.line_numbers();
         assert!(new_line_numbers.is_empty());
         if new_line_numbers.start == 0 {
-            anyhow::bail!("The file was deleted at {commit_id:?}");
+            return Err(BlameError::FileDeleted(commit_id).into());
         }
         let old_line_numbers = &part.old.line_numbers;
         assert!(old_line_numbers.start > 0);
