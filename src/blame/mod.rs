@@ -1,3 +1,6 @@
+mod blame_error;
+pub use blame_error::*;
+
 mod commit_iterator;
 pub use commit_iterator::*;
 
