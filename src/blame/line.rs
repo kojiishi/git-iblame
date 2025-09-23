@@ -92,11 +92,23 @@ impl Line {
         is_current_line: bool,
         max_columns: usize,
     ) -> anyhow::Result<()> {
+        let commit = self
+            .commit_id
+            .map(|commit_id| history.commits().get_by_commit_id(commit_id))
+            .transpose()?;
         let mut should_reset = false;
         if is_current_line {
             queue!(
                 out,
                 style::SetColors(style::Colors::new(style::Color::Black, style::Color::Cyan)),
+            )?;
+            should_reset = true;
+        } else if let Some(commit) = commit
+            && commit.is_apply_failed()
+        {
+            queue!(
+                out,
+                style::SetColors(style::Colors::new(style::Color::Red, style::Color::Black)),
             )?;
             should_reset = true;
         }
@@ -106,7 +118,7 @@ impl Line {
             should_reset = true;
         }
 
-        let blame = self.left_pane(history)?;
+        let blame = self.left_pane(commit)?;
         let left_pane = match self.line_type {
             LineType::Line | LineType::Log => format!("{:4}:{blame:25.25}|", self.line_number),
             LineType::Deleted => format!("    :{blame:25.25}|"),
@@ -145,9 +157,8 @@ impl Line {
         Ok(())
     }
 
-    fn left_pane(&self, history: &FileHistory) -> anyhow::Result<Cow<'static, str>> {
-        let left_pane = if let Some(commit_id) = self.commit_id {
-            let commit = history.commits().get_by_commit_id(commit_id)?;
+    fn left_pane(&self, commit: Option<&FileCommit>) -> anyhow::Result<Cow<'static, str>> {
+        let left_pane = if let Some(commit) = commit {
             match self.index_in_hunk {
                 0 => {
                     let datetime = commit.time().to_local_date_time().map_or_else(
