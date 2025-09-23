@@ -274,21 +274,26 @@ impl FileContent {
 
     fn apply_commits(&mut self, commits: &[FileCommit], skip: usize) -> anyhow::Result<()> {
         for i in skip..commits.len() {
-            let commit = &commits[i];
-            if i == 0 {
-                self.apply_diff_parts(commit.diff_parts(), commit)?;
-            } else {
-                // If i > 0, the line numbers in `commit.diff_parts().new`
-                // aren't the line numbers in `self.lines`. Map them to the line
-                // numbers of `self.lines`.
-                let mut adjusted_parts = commit.diff_parts().clone();
-                for j in (0..i).rev() {
-                    let parts = &commits[j].diff_parts();
-                    let map = LineNumberMap::new_new_from_old(parts);
-                    map.apply_to_parts(&mut adjusted_parts);
-                }
-                self.apply_diff_parts(&adjusted_parts, commit)?;
+            self.apply_commit(commits, i)?;
+        }
+        Ok(())
+    }
+
+    fn apply_commit(&mut self, commits: &[FileCommit], commit_index: usize) -> anyhow::Result<()> {
+        let commit = &commits[commit_index];
+        if commit_index == 0 {
+            self.apply_diff_parts(commit.diff_parts(), commit)?;
+        } else {
+            // If `commit_index > 0`, the line numbers in `commit.diff_parts().new`
+            // aren't the line numbers in `self.lines`. Map them to the line
+            // numbers of `self.lines`.
+            let mut adjusted_parts = commit.diff_parts().clone();
+            for j in (0..commit_index).rev() {
+                let parts = &commits[j].diff_parts();
+                let map = LineNumberMap::new_new_from_old(parts);
+                map.apply_to_parts(&mut adjusted_parts);
             }
+            self.apply_diff_parts(&adjusted_parts, commit)?;
         }
         Ok(())
     }
@@ -306,7 +311,7 @@ impl FileContent {
 
     fn apply_diff_part(&mut self, part: &DiffPart, commit: &FileCommit) -> anyhow::Result<()> {
         let commit_id = commit.commit_id();
-        trace!("apply: #{} {part:?}", commit.index());
+        trace!("apply: #{} {part:?} {}", commit.index(), commit_id);
         let new_line_numbers = part.new.line_numbers();
         if new_line_numbers.is_empty() {
             return self.insert_deleted_part(part, commit_id);
@@ -332,9 +337,12 @@ impl FileContent {
     }
 
     fn insert_deleted_part(&mut self, part: &DiffPart, commit_id: git2::Oid) -> anyhow::Result<()> {
+        trace!("insert_deleted_part: {part:?}");
         let new_line_numbers = part.new.line_numbers();
         assert!(new_line_numbers.is_empty());
-        assert!(new_line_numbers.start > 0);
+        if new_line_numbers.start == 0 {
+            anyhow::bail!("The file was deleted at {commit_id:?}");
+        }
         let old_line_numbers = &part.old.line_numbers;
         assert!(old_line_numbers.start > 0);
         if old_line_numbers.is_empty() {
