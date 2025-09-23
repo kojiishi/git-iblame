@@ -326,8 +326,7 @@ impl FileContent {
         trace!("apply: #{} {part:?} {}", commit.index(), commit_id);
         let new_line_numbers = part.new.line_numbers();
         if new_line_numbers.is_empty() {
-            commit.set_apply_failed();
-            return self.insert_deleted_part(part, commit_id);
+            return self.insert_deleted_part(part, commit);
         }
 
         // Saturate `end`, as it may be set to `MAX`.
@@ -349,11 +348,13 @@ impl FileContent {
         Ok(())
     }
 
-    fn insert_deleted_part(&mut self, part: &DiffPart, commit_id: git2::Oid) -> anyhow::Result<()> {
+    fn insert_deleted_part(&mut self, part: &DiffPart, commit: &FileCommit) -> anyhow::Result<()> {
         trace!("insert_deleted_part: {part:?}");
+        let commit_id = commit.commit_id();
         let new_line_numbers = part.new.line_numbers();
         assert!(new_line_numbers.is_empty());
         if new_line_numbers.start == 0 {
+            commit.set_apply_failed();
             return Err(BlameError::FileDeleted(commit_id).into());
         }
         let old_line_numbers = &part.old.line_numbers;
