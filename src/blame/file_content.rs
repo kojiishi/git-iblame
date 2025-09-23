@@ -281,7 +281,7 @@ impl FileContent {
         // Don't apply if any earlier commits have failed to apply.
         for commit in &commits[0..first_index + skip] {
             if commit.is_apply_failed() {
-                trace!("is_appy_failed {}", commit.commit_id());
+                trace!("is_apply_failed {}", commit.commit_id());
                 return Ok(());
             }
         }
@@ -289,7 +289,7 @@ impl FileContent {
         for commit_index in skip..commits.len() {
             let commit = &commits[commit_index];
             if commit.is_apply_failed() {
-                trace!("is_appy_failed {commit_index} {}", commit.commit_id());
+                trace!("is_apply_failed {commit_index} {}", commit.commit_id());
                 break;
             }
             if commit_index == 0 {
