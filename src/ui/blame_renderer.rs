@@ -200,7 +200,15 @@ impl BlameRenderer {
 
     pub fn read_poll(&mut self) -> anyhow::Result<()> {
         if self.history_mut().read_poll()? {
+            let current_line_index_before = self.current_line_index();
             self.content.update_commits(&self.history)?;
+            let current_line_index_after = self.current_line_index();
+            if current_line_index_after > current_line_index_before {
+                // If lines were inserted before the current line, adjust the
+                // scroll position so that the current line stays unchanged on
+                // the view.
+                self.view_start_line_index += current_line_index_after - current_line_index_before;
+            }
             self.invalidate_render();
             self.scroll_current_line_into_view();
         }
