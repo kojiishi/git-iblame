@@ -8,7 +8,7 @@ use log::*;
 
 use crate::extensions::GitTools;
 
-use super::{BlameError, DiffPart, FileCommit, FileHistory, Line, LineNumberMap};
+use super::{BlameError, DiffPart, FileCommit, FileCommits, FileHistory, Line, LineNumberMap};
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum ContentType {
@@ -265,35 +265,47 @@ impl FileContent {
             "apply_commits: {first_index}..{} skip={skip}",
             commits.len()
         );
-        self.apply_commits(&commits[first_index..], skip)?;
+        self.apply_commits(commits, first_index, skip)?;
         self.update_lines_after_apply();
         self.applied_commits_len = commits.len();
         trace!("update_commits done, elapsed: {:?}", start_time.elapsed());
         Ok(())
     }
 
-    fn apply_commits(&mut self, commits: &[FileCommit], skip: usize) -> anyhow::Result<()> {
-        for i in skip..commits.len() {
-            self.apply_commit(commits, i)?;
-        }
-        Ok(())
-    }
-
-    fn apply_commit(&mut self, commits: &[FileCommit], commit_index: usize) -> anyhow::Result<()> {
-        let commit = &commits[commit_index];
-        if commit_index == 0 {
-            self.apply_diff_parts(commit.diff_parts(), commit)?;
-        } else {
-            // If `commit_index > 0`, the line numbers in `commit.diff_parts().new`
-            // aren't the line numbers in `self.lines`. Map them to the line
-            // numbers of `self.lines`.
-            let mut adjusted_parts = commit.diff_parts().clone();
-            for j in (0..commit_index).rev() {
-                let parts = &commits[j].diff_parts();
-                let map = LineNumberMap::new_new_from_old(parts);
-                map.apply_to_parts(&mut adjusted_parts);
+    fn apply_commits(
+        &mut self,
+        commits: &FileCommits,
+        first_index: usize,
+        skip: usize,
+    ) -> anyhow::Result<()> {
+        // Don't apply if any earlier commits have failed to apply.
+        for commit in &commits[0..first_index + skip] {
+            if commit.is_apply_failed() {
+                trace!("is_appy_failed {}", commit.commit_id());
+                return Ok(());
             }
-            self.apply_diff_parts(&adjusted_parts, commit)?;
+        }
+        let commits = &commits[first_index..];
+        for commit_index in skip..commits.len() {
+            let commit = &commits[commit_index];
+            if commit.is_apply_failed() {
+                trace!("is_appy_failed {commit_index} {}", commit.commit_id());
+                break;
+            }
+            if commit_index == 0 {
+                self.apply_diff_parts(commit.diff_parts(), commit)?;
+            } else {
+                // If `commit_index > 0`, the line numbers in `commit.diff_parts().new`
+                // aren't the line numbers in `self.lines`. Map them to the line
+                // numbers of `self.lines`.
+                let mut adjusted_parts = commit.diff_parts().clone();
+                for j in (0..commit_index).rev() {
+                    let parts = &commits[j].diff_parts();
+                    let map = LineNumberMap::new_new_from_old(parts);
+                    map.apply_to_parts(&mut adjusted_parts);
+                }
+                self.apply_diff_parts(&adjusted_parts, commit)?;
+            }
         }
         Ok(())
     }
@@ -314,6 +326,7 @@ impl FileContent {
         trace!("apply: #{} {part:?} {}", commit.index(), commit_id);
         let new_line_numbers = part.new.line_numbers();
         if new_line_numbers.is_empty() {
+            commit.set_apply_failed();
             return self.insert_deleted_part(part, commit_id);
         }
 

@@ -1,6 +1,7 @@
 use std::{
     io::BufReader,
     path::{Path, PathBuf},
+    sync::atomic::{self, AtomicBool},
 };
 
 use log::*;
@@ -27,6 +28,7 @@ pub struct FileCommit {
     author_email: Option<String>,
     old_path: Option<PathBuf>,
     diff_parts: Vec<DiffPart>,
+    is_apply_failed: AtomicBool,
 }
 
 impl FileCommit {
@@ -40,6 +42,7 @@ impl FileCommit {
             author_email: None,
             old_path: None,
             diff_parts: Vec::new(),
+            is_apply_failed: AtomicBool::new(false),
         }
     }
 
@@ -86,6 +89,15 @@ impl FileCommit {
 
     pub fn diff_parts(&self) -> &Vec<DiffPart> {
         &self.diff_parts
+    }
+
+    pub fn is_apply_failed(&self) -> bool {
+        self.is_apply_failed.load(atomic::Ordering::Relaxed)
+    }
+
+    pub(crate) fn set_apply_failed(&self) {
+        trace!("set_apply_failed: {self:?}");
+        self.is_apply_failed.store(true, atomic::Ordering::Relaxed);
     }
 
     pub fn read(&mut self, git: &GitTools) -> anyhow::Result<()> {
