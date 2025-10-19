@@ -29,7 +29,7 @@ Features:
 
 The `git-iblame` is built for responsive interaction.
 Lengthy operations such as
-computing all the history of a file runs in background.
+computing all the history of a file run in background.
 Old annotations which takes time to read from the disk
 come up incrementally while you are browsing.
 
