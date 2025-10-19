@@ -83,6 +83,10 @@ impl DiffRange {
         &self.line_numbers
     }
 
+    pub fn start_line_number(&self) -> usize {
+        self.line_numbers.start
+    }
+
     pub fn len(&self) -> usize {
         self.line_numbers.len()
     }

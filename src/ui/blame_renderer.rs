@@ -232,7 +232,14 @@ impl BlameRenderer {
                 )?;
                 content.set_current_line_number(line_number)?;
             }
-            ContentType::Log => {}
+            ContentType::Log => {
+                let commit = self.history.commits().get_by_commit_id(commit_id)?;
+                let diff_parts = commit.diff_parts();
+                if !diff_parts.is_empty() {
+                    let first_line_number = diff_parts[0].new.start_line_number();
+                    content.set_current_line_number(first_line_number)?;
+                }
+            }
         }
         self.swap_content(&mut content);
         Ok(())
