@@ -216,13 +216,19 @@ impl BlameRenderer {
     }
 
     pub fn set_commit_id(&mut self, commit_id: Oid) -> anyhow::Result<()> {
+        let commit_id_before = self.commit_id();
+        debug!("set_commit_id: {commit_id:?} (was {commit_id_before:?})");
+        let content_type_before = self.content.content_type();
+        if commit_id == commit_id_before && content_type_before == ContentType::File {
+            return Ok(());
+        }
         let mut content = self.history().content(commit_id)?;
-        match self.content.content_type() {
+        match content_type_before {
             ContentType::File => {
                 let line_number = self.history.map_line_number_by_commit_ids(
                     self.current_line_number(),
                     commit_id,
-                    self.commit_id(),
+                    commit_id_before,
                 )?;
                 content.set_current_line_number(line_number)?;
             }
