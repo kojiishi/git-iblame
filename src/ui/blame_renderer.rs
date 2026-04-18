@@ -156,14 +156,23 @@ impl BlameRenderer {
         let above_margin = line_index.saturating_sub(MARGIN);
         if self.view_start_line_index > above_margin {
             self.view_start_line_index = above_margin;
-            return;
+        } else {
+            // Scroll down to ensure `MARGIN` lines below the current line are visible.
+            let below_margin = self.content.saturate_line_index(line_index + MARGIN);
+            let below_margin_start_index = (below_margin + 1).saturating_sub(view_rows);
+            if self.view_start_line_index < below_margin_start_index {
+                self.view_start_line_index = below_margin_start_index;
+            }
         }
 
-        // Scroll down to ensure `MARGIN` lines below the current line are visible.
-        let below_margin = self.content.saturate_line_index(line_index + MARGIN);
-        let below_margin_start_index = (below_margin + 1).saturating_sub(view_rows);
-        if self.view_start_line_index < below_margin_start_index {
-            self.view_start_line_index = below_margin_start_index;
+        // If the scroll causes a full refresh (no lines were visible before),
+        // center the current line.
+        if self.rendered_rows > 0
+            && (self.view_start_line_index as isize - self.rendered_view_start_line_index as isize)
+                .abs()
+                >= view_rows as isize
+        {
+            self.scroll_current_line_to_center_of_view();
         }
     }
 
@@ -447,6 +456,19 @@ mod tests {
         assert_eq!(adjust_start_line_index(&mut renderer, 14, 30, 5, 20), 5);
         assert_eq!(adjust_start_line_index(&mut renderer, 14, 21, 5, 20), 1);
         assert_eq!(adjust_start_line_index(&mut renderer, 14, 15, 5, 20), 0);
+        Ok(())
+    }
+
+    #[test]
+    fn scroll_current_line_into_view_centers_on_large_scroll() -> anyhow::Result<()> {
+        let mut renderer = BlameRenderer::new_for_test()?;
+        renderer.set_view_size((10, 20));
+        renderer.content.set_lines_len_for_test(100);
+        renderer.rendered_rows = 20;
+        renderer.rendered_view_start_line_index = 0;
+        renderer.content.set_current_line_index(80);
+        renderer.scroll_current_line_into_view();
+        assert_eq!(renderer.view_start_line_index, 70);
         Ok(())
     }
 
