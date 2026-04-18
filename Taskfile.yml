@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=https://taskfile.dev/schema.json
+
+version: '3'
+
+tasks:
+  default:
+    deps: [check]
+  check:
+    - task: test
+    - task: lint
+    - task: fmt
+  fix:
+    - cargo clippy --fix --all-targets --all-features -- -D warnings
+    - task: fmt
+  fmt:
+    - cargo fmt --all
+    - git diff
+  lint: cargo clippy --all-targets --all-features -- -D warnings
+  test:
+    cmds:
+      - cargo test
+    env:
+      RUST_BACKTRACE: 1
