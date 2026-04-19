@@ -111,18 +111,27 @@ impl FileCommit {
     }
 
     fn read_by_git(&mut self, git: &GitTools) -> anyhow::Result<()> {
+        self.read_by_git_paths(true, git)
+    }
+
+    fn read_by_git_paths(&mut self, is_path_only: bool, git: &GitTools) -> anyhow::Result<()> {
         let start_time = std::time::Instant::now();
         let commit_id = self.commit_id;
         debug!("read_by_git.start: {commit_id:?} {:?}", self.path);
         let commit = git.repository().find_commit(commit_id)?;
         self.set_commit(&commit);
 
-        let mut command = git.create_show_all(commit_id);
+        let mut paths: Vec<&Path> = vec![];
+        if is_path_only {
+            paths.push(&self.path);
+        }
+        let mut command = git.create_show(commit_id, &paths);
         let mut child = command.stdout(std::process::Stdio::piped()).spawn()?;
         let stdout = child.stdout.take().unwrap();
         let mut reader = BufReader::new(stdout);
         let mut buffer = LineReadBuffer::new();
         let re_file = Regex::new(r#"^diff --git "?a/(.+?)"? "?b/(.+?)"?$"#)?;
+        let re_new_file = Regex::new(r"^--- /dev/null$")?;
         let re_hunk = Regex::new(r"^@@ -(\d+),(\d+) \+(\d+),(\d+) @@")?;
 
         let path = self.path.to_str().unwrap();
@@ -132,6 +141,7 @@ impl FileCommit {
         let mut context = DiffReadContext::default();
         while buffer.read_line_from(&mut reader)? {
             let line = buffer.as_ref();
+            trace!("read_by_git: line={line}");
             if buffer.invalid_len() > 0
                 && (line.is_empty() || line.starts_with("diff ") || line.starts_with("@@ "))
             {
@@ -155,11 +165,18 @@ impl FileCommit {
                 if old_path_from_git != path {
                     old_path = Some(old_path_from_git.into());
                 }
-                trace!("file: found {new_path:?} old={old_path:?} {old_path_from_git}");
+                trace!("read_by_git.file: {new_path:?} old={old_path:?} {old_path_from_git}");
                 continue;
             }
             if !is_path_found {
                 continue;
+            }
+            if !is_in_hunk && is_path_only && re_new_file.is_match(line) {
+                // If we're using paths and the target file is a new file, it's
+                // possible that this is a rename. Show all files so that `git`
+                // can detect the rename.
+                trace!("read_by_git.file: possible rename, show all files");
+                return self.read_by_git_paths(false, git);
             }
             if let Some(captures) = re_hunk.captures(line) {
                 let old_line_number = captures.get(1).unwrap().as_str().parse::<usize>()?;
