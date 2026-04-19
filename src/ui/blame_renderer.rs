@@ -413,8 +413,7 @@ impl BlameRenderer {
     {
         let mut row = start_row;
         let current_line_index = self.current_line_index();
-        let mut line_index = start_line_index;
-        for line in lines {
+        for (line_index, line) in (start_line_index..).zip(lines) {
             queue!(out, cursor::MoveTo(0, row))?;
             if should_clear_lines {
                 queue!(out, terminal::Clear(terminal::ClearType::CurrentLine))?;
@@ -426,7 +425,6 @@ impl BlameRenderer {
                 self.view_cols() as usize,
             )?;
             row += 1;
-            line_index += 1;
         }
         Ok(row)
     }

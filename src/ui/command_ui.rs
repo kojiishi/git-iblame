@@ -66,10 +66,10 @@ impl CommandUI {
         assert!(!event.is_release());
 
         match event.code {
-            event::KeyCode::Char(ch) => {
-                if !self.buffer.is_empty() || ch == '/' || ch.is_ascii_digit() {
-                    self.buffer.push(ch);
-                }
+            event::KeyCode::Char(ch)
+                if (!self.buffer.is_empty() || ch == '/' || ch.is_ascii_digit()) =>
+            {
+                self.buffer.push(ch);
             }
             event::KeyCode::Enter => {
                 if let Ok(number) = self.buffer.parse() {
