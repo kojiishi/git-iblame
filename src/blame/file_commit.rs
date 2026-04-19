@@ -122,7 +122,7 @@ impl FileCommit {
         let stdout = child.stdout.take().unwrap();
         let mut reader = BufReader::new(stdout);
         let mut buffer = LineReadBuffer::new();
-        let re_file = Regex::new(r"^diff --git a/(.+) b/(.+)$")?;
+        let re_file = Regex::new(r#"^diff --git "?a/(.+?)"? "?b/(.+?)"?$"#)?;
         let re_hunk = Regex::new(r"^@@ -(\d+),(\d+) \+(\d+),(\d+) @@")?;
 
         let path = self.path.to_str().unwrap();
@@ -356,6 +356,7 @@ impl DiffReadContext {
     }
 
     fn on_git_line(&mut self, line: &str) {
+        trace!("on_git_line: line={line:?}");
         let origin = line.as_bytes().first().map_or('\0', |b| *b as char);
         trace!(
             "on_git_line: {origin} {},{}",
