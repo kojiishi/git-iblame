@@ -111,10 +111,10 @@ impl FileCommit {
     }
 
     fn read_by_git(&mut self, git: &GitTools) -> anyhow::Result<()> {
-        self.read_by_git_paths(true, git)
+        self.read_by_git_paths(git, false)
     }
 
-    fn read_by_git_paths(&mut self, is_path_only: bool, git: &GitTools) -> anyhow::Result<()> {
+    fn read_by_git_paths(&mut self, git: &GitTools, check_rename: bool) -> anyhow::Result<()> {
         let start_time = std::time::Instant::now();
         let commit_id = self.commit_id;
         debug!("read_by_git.start: {commit_id:?} {:?}", self.path);
@@ -122,7 +122,7 @@ impl FileCommit {
         self.set_commit(&commit);
 
         let mut paths: Vec<&Path> = vec![];
-        if is_path_only {
+        if !check_rename {
             paths.push(&self.path);
         }
         let mut command = git.create_show(commit_id, &paths);
@@ -171,12 +171,12 @@ impl FileCommit {
             if !is_path_found {
                 continue;
             }
-            if !is_in_hunk && is_path_only && re_new_file.is_match(line) {
+            if !is_in_hunk && !check_rename && re_new_file.is_match(line) {
                 // If we're using paths and the target file is a new file, it's
                 // possible that this is a rename. Show all files so that `git`
                 // can detect the rename.
                 trace!("read_by_git.file: possible rename, show all files");
-                return self.read_by_git_paths(false, git);
+                return self.read_by_git_paths(git, true);
             }
             if let Some(captures) = re_hunk.captures(line) {
                 let old_line_number = captures.get(1).unwrap().as_str().parse::<usize>()?;
