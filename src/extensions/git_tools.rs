@@ -130,24 +130,28 @@ impl GitTools {
 
     pub fn show(&self, commit_id: git2::Oid, paths: &[&Path]) -> anyhow::Result<()> {
         debug!("git-show: {commit_id} {paths:?}");
-        let mut command = self.create_show_command(commit_id);
+        let mut command = self.create_show(commit_id, paths);
+        let mut child = command.spawn()?;
+        child.wait()?;
+        Ok(())
+    }
+
+    pub fn create_show_all(&self, commit_id: git2::Oid) -> std::process::Command {
+        self.create_show(commit_id, &[])
+    }
+
+    pub fn create_show(&self, commit_id: git2::Oid, paths: &[&Path]) -> std::process::Command {
+        let mut command = std::process::Command::new("git");
+        command
+            .current_dir(self.repository_path())
+            .arg("show")
+            .arg(commit_id.to_string());
         if !paths.is_empty() {
             command.arg("--");
             for path in paths {
                 command.arg(path);
             }
         }
-        let mut child = command.spawn()?;
-        child.wait()?;
-        Ok(())
-    }
-
-    pub fn create_show_command(&self, commit_id: git2::Oid) -> std::process::Command {
-        let mut command = std::process::Command::new("git");
-        command
-            .current_dir(self.repository_path())
-            .arg("show")
-            .arg(commit_id.to_string());
         command
     }
 }
