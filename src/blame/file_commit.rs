@@ -117,7 +117,7 @@ impl FileCommit {
         let commit = git.repository().find_commit(commit_id)?;
         self.set_commit(&commit);
 
-        let mut command = git.create_show_command(commit_id);
+        let mut command = git.create_show_all(commit_id);
         let mut child = command.stdout(std::process::Stdio::piped()).spawn()?;
         let stdout = child.stdout.take().unwrap();
         let mut reader = BufReader::new(stdout);
