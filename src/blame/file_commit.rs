@@ -213,6 +213,11 @@ impl FileCommit {
     }
 
     fn read_by_git2(&mut self, git: &GitTools) -> anyhow::Result<()> {
+        self.read_by_git2_rename(git, false)
+    }
+
+    fn read_by_git2_rename(&mut self, git: &GitTools, check_rename: bool) -> anyhow::Result<()> {
+        assert!(self.diff_parts.is_empty());
         let start_time = std::time::Instant::now();
         let commit_id = self.commit_id;
         debug!("read_by_git2.start: {commit_id:?} {:?}", self.path);
@@ -241,6 +246,9 @@ impl FileCommit {
 
         let mut diff_options = git2::DiffOptions::new();
         diff_options.ignore_whitespace(true);
+        if !check_rename {
+            diff_options.pathspec(self.path.clone());
+        }
         let mut diff = git.repository().diff_tree_to_tree(
             Some(&parent_tree),
             Some(&tree),
@@ -248,20 +256,29 @@ impl FileCommit {
         )?;
         trace!("diff_tree_to_tree: elapsed {:?}", start_time.elapsed());
 
-        let mut diff_find_options = git2::DiffFindOptions::new();
-        diff_find_options.renames(true);
-        diff.find_similar(Some(&mut diff_find_options))?;
-        trace!("find_similar: elapsed {:?}", start_time.elapsed());
+        if check_rename {
+            let mut diff_find_options = git2::DiffFindOptions::new();
+            diff_find_options.renames(true);
+            diff.find_similar(Some(&mut diff_find_options))?;
+            trace!("find_similar: elapsed {:?}", start_time.elapsed());
+        }
 
         let path = self.path.as_path();
         let mut old_path: Option<PathBuf> = None;
         let mut context = DiffReadContext::default();
-        diff.foreach(
+        let foreach_result = diff.foreach(
             &mut |delta, _| {
+                trace!("read_by_git2.file: {delta:?}");
                 if !DiffReadContext::is_path(&delta, path) {
                     return true;
                 }
-                trace!("file: {delta:?}");
+                if !check_rename && delta.status() == git2::Delta::Added {
+                    // If we don't call `find_similar` and the target file is a
+                    // new file, it's possible that this is a rename. Get all
+                    // files and call `find_similar` to detect renames.
+                    trace!("read_by_git2.file: possible rename, show all files");
+                    return false;
+                }
                 if let Some(delta_old_path) = delta.old_file().path()
                     && delta_old_path != path {
                         old_path = Some(delta_old_path.to_path_buf());
@@ -298,7 +315,15 @@ impl FileCommit {
                 context.on_line_callback(line.origin(), line.old_lineno(), line.new_lineno(), line.num_lines());
                 true
             }),
-        )?;
+        );
+        if let Err(error) = foreach_result {
+            if error.code() == git2::ErrorCode::User && !check_rename {
+                trace!("read_by_git2: foreach aborted");
+                return self.read_by_git2_rename(git, true);
+            }
+            trace!("read_by_git2: foreach failed: {error:?}");
+            anyhow::bail!(error);
+        }
         context.flush_part();
 
         if let Some(old_path) = old_path
