@@ -16,6 +16,10 @@ enum GitEngine {
     Git,
     Git2,
 }
+
+#[cfg(feature = "git2")]
+static mut DIFF_ENGINE: GitEngine = GitEngine::Git2;
+#[cfg(not(feature = "git2"))]
 static mut DIFF_ENGINE: GitEngine = GitEngine::Git;
 
 #[derive(Debug)]
@@ -48,6 +52,10 @@ impl FileCommit {
 
     fn git_engine() -> GitEngine {
         unsafe { DIFF_ENGINE }
+    }
+
+    pub fn use_git() {
+        unsafe { DIFF_ENGINE = GitEngine::Git }
     }
 
     pub fn use_git2() {

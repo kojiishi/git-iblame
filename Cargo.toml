@@ -22,5 +22,8 @@ log = "0.4.29"
 regex = "1.12.3"
 thiserror = "2.0.18"
 
+[features]
+git2 = []
+
 [dev-dependencies]
 tempfile = "3.27.0"
