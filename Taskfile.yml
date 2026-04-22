@@ -18,11 +18,12 @@ tasks:
   lint: cargo clippy {{.CLIPPY}}
   test:
     cmds:
-      - cargo test {{.TEST}}
+      - for: ['', '-Fgit2']
+        cmd: cargo test {{.ITEM}} {{.TEST}}
     env:
       RUST_BACKTRACE: 1
 
 vars:
   CLIPPY: '--all-targets --all-features -- -D warnings'
   FMT: '--all'
-  TEST: '--all-features'
+  TEST: ''

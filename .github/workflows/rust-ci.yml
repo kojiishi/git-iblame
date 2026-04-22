@@ -34,6 +34,11 @@ jobs:
         env:
           RUST_BACKTRACE: 1
 
+      - name: Run tests (git2)
+        run: cargo test -Fgit2 --verbose
+        env:
+          RUST_BACKTRACE: 1
+
       - name: Check style
         run: cargo fmt --all --check
         if: contains(matrix.os, 'ubuntu')
