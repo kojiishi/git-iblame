@@ -10,20 +10,20 @@ tasks:
     - task: lint
     - task: fmt
   fix:
-    - cargo clippy --fix {{.CLIPPY}}
+    - cargo clippy --fix {{.CLIPPY}} {{.CLI_ARGS}}
     - task: fmt
   fmt:
-    - cargo fmt {{.FMT}}
+    - cargo fmt {{.FMT}} {{.CLI_ARGS}}
     - git diff
-  lint: cargo clippy {{.CLIPPY}}
+  lint: cargo clippy {{.CLIPPY}} {{.CLI_ARGS}}
   test:
     cmds:
       - for: ['', '-Fgit2']
-        cmd: cargo test {{.ITEM}} {{.TEST}}
+        cmd: cargo test {{.ITEM}} {{.TEST}} {{.CLI_ARGS}}
     env:
       RUST_BACKTRACE: 1
 
 vars:
-  CLIPPY: '--all-targets --all-features -- -D warnings'
+  CLIPPY: '--all-targets --all-features -- -Dwarnings'
   FMT: '--all'
   TEST: ''
