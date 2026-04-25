@@ -1,8 +1,9 @@
 use std::{borrow::Cow, fmt, io::Write};
 
 use crossterm::{queue, style};
+use git2_time_chrono_ext::Git2TimeChronoExt;
 
-use crate::extensions::{Git2TimeToChronoExt, OrDefault};
+use crate::extensions::OrDefault;
 
 use super::{FileCommit, FileHistory};
 
