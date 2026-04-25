@@ -151,6 +151,7 @@ impl FileHistory {
         repository_path: &Path,
         tx: mpsc::Sender<FileCommit>,
     ) -> anyhow::Result<()> {
+        let start_time = std::time::Instant::now();
         let mut commits = CommitIterator::new(path, repository_path);
         commits.start()?;
         let git = GitTools::from_repository_path(repository_path)?;
@@ -166,6 +167,7 @@ impl FileHistory {
             tx.send(diff)?;
         }
         commits.join()?;
+        info!("read_thread: elapsed {:?}", start_time.elapsed());
         Ok(())
     }
 
