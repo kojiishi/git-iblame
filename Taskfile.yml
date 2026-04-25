@@ -9,17 +9,15 @@ tasks:
     - task: test
     - task: lint
     - task: fmt
-  fix:
-    - cargo clippy --fix {{.CLIPPY}} {{.CLI_ARGS}}
-    - task: fmt
+  fix: cargo clippy --fix {{.CLIPPY}} {{.CLI_ARGS}}
   fmt:
     - cargo fmt {{.FMT}} {{.CLI_ARGS}}
     - git diff
   lint: cargo clippy {{.CLIPPY}} {{.CLI_ARGS}}
   test:
     cmds:
-      - for: ['', '-Fgit2']
-        cmd: cargo test {{.ITEM}} {{.TEST}} {{.CLI_ARGS}}
+      - cargo test {{.TEST}} {{.CLI_ARGS}}
+      - cargo test -Fgit2 {{.TEST}} {{.CLI_ARGS}}
     env:
       RUST_BACKTRACE: 1
 
