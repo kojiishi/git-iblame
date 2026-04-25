@@ -171,10 +171,9 @@ impl FileHistory {
 
     pub fn read_poll(&mut self) -> anyhow::Result<bool> {
         let start_time = std::time::Instant::now();
-        if self.rx.is_none() {
+        let Some(rx) = self.rx.as_mut() else {
             return Ok(false);
-        }
-        let rx = self.rx.as_mut().unwrap();
+        };
         let mut count = 0;
         loop {
             match rx.try_recv() {
