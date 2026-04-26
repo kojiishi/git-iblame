@@ -138,11 +138,7 @@ impl Line {
         let max_main_pane = max_columns.saturating_sub(left_pane_len);
         match self.line_type {
             LineType::Line | LineType::Log => {
-                let mut content = self.content.as_str();
-                content = match content.char_indices().nth(max_main_pane) {
-                    None => content,
-                    Some((idx, _)) => &content[..idx],
-                };
+                let content = Self::truncate(&self.content, max_main_pane);
                 queue!(out, style::Print(content))?;
             }
             LineType::Deleted => {
@@ -185,5 +181,63 @@ impl Line {
             "...".into()
         };
         Ok(left_pane)
+    }
+
+    const TAB_SIZE: usize = 4;
+
+    fn truncate<'a>(input: &'a str, max_width: usize) -> Cow<'a, str> {
+        let mut width = 0;
+        let mut break_index = input.len();
+        let mut buffer: Option<String> = None;
+        for (index, ch) in input.char_indices() {
+            let ch_width = if ch == '\t' {
+                let next_tab = (width + Self::TAB_SIZE) / Self::TAB_SIZE * Self::TAB_SIZE;
+                next_tab - width
+            } else {
+                1
+            };
+            if width + ch_width > max_width {
+                break_index = index;
+                break;
+            }
+            if ch == '\t' {
+                if buffer.is_none() {
+                    let mut content = String::with_capacity(input.len() + 32);
+                    content.push_str(&input[..index]);
+                    buffer = Some(content);
+                }
+                buffer.as_mut().unwrap().push_str(&" ".repeat(ch_width));
+            } else if let Some(ref mut content) = buffer {
+                content.push(ch);
+            }
+            width += ch_width;
+        }
+        match buffer {
+            Some(content) => Cow::Owned(content),
+            None => Cow::Borrowed(&input[..break_index]),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_truncate() {
+        assert_eq!(Line::truncate("abc", 5), "abc");
+        assert_eq!(Line::truncate("abc", 2), "ab");
+        assert_eq!(Line::truncate("abc", 0), "");
+
+        // Tab expansion (TAB_SIZE = 4)
+        assert_eq!(Line::truncate("\t", 4), "    ");
+        assert_eq!(Line::truncate("\t", 3), "");
+
+        assert_eq!(Line::truncate("a\t", 5), "a   ");
+        assert_eq!(Line::truncate("a\t", 4), "a   ");
+        assert_eq!(Line::truncate("a\t", 3), "a");
+
+        assert_eq!(Line::truncate("123\t", 5), "123 ");
+        assert_eq!(Line::truncate("1234\t", 10), "1234    ");
     }
 }
