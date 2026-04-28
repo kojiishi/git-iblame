@@ -2,10 +2,10 @@ use std::{borrow::Cow, fmt, io::Write};
 
 use crossterm::{queue, style};
 use git2_time_chrono_ext::Git2TimeChronoExt;
-
-use crate::extensions::OrDefault;
+use unicode_width::UnicodeWidthChar;
 
 use super::{FileCommit, FileHistory};
+use crate::extensions::OrDefault;
 
 #[derive(Debug, Default, Eq, PartialEq)]
 enum LineType {
@@ -194,7 +194,7 @@ impl Line {
                 let next_tab = (width + Self::TAB_SIZE) / Self::TAB_SIZE * Self::TAB_SIZE;
                 next_tab - width
             } else {
-                1
+                ch.width().unwrap_or(0)
             };
             if width + ch_width > max_width {
                 break_index = index;
@@ -224,12 +224,14 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_truncate() {
+    fn truncate() {
         assert_eq!(Line::truncate("abc", 5), "abc");
         assert_eq!(Line::truncate("abc", 2), "ab");
         assert_eq!(Line::truncate("abc", 0), "");
+    }
 
-        // Tab expansion (TAB_SIZE = 4)
+    #[test]
+    fn truncate_tab() {
         assert_eq!(Line::truncate("\t", 4), "    ");
         assert_eq!(Line::truncate("\t", 3), "");
 
@@ -239,5 +241,16 @@ mod tests {
 
         assert_eq!(Line::truncate("123\t", 5), "123 ");
         assert_eq!(Line::truncate("1234\t", 10), "1234    ");
+    }
+
+    #[test]
+    fn truncate_wide() {
+        assert_eq!(Line::truncate("あいうえお", 11), "あいうえお");
+        assert_eq!(Line::truncate("あいうえお", 10), "あいうえお");
+        assert_eq!(Line::truncate("あいうえお", 9), "あいうえ");
+        assert_eq!(Line::truncate("あいうえお", 8), "あいうえ");
+        assert_eq!(Line::truncate("あいうえお", 2), "あ");
+        assert_eq!(Line::truncate("あいうえお", 1), "");
+        assert_eq!(Line::truncate("あいうえお", 0), "");
     }
 }
