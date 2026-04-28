@@ -334,7 +334,7 @@ dependencies = [
  "log",
  "regex",
  "tempfile",
- "thiserror 2.0.18",
+ "thiserror",
  "unicode-width",
 ]
 
@@ -353,13 +353,13 @@ dependencies = [
 
 [[package]]
 name = "git2-time-chrono-ext"
-version = "0.2.0"
+version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b3e90cb17e20111c3cb793bf1a1f76d02e6438b04a63e800009d919ca2d2502b"
+checksum = "46ce92e811b12dce27f7c422e1cf55e159d69f94409a28f35646527c0f845538"
 dependencies = [
  "chrono",
  "git2",
- "thiserror 1.0.69",
+ "thiserror",
 ]
 
 [[package]]
@@ -912,31 +912,11 @@ dependencies = [
 
 [[package]]
 name = "thiserror"
-version = "1.0.69"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b6aaf5339b578ea85b50e080feb250a3e8ae8cfcdff9a461c9ec2904bc923f52"
-dependencies = [
- "thiserror-impl 1.0.69",
-]
-
-[[package]]
-name = "thiserror"
 version = "2.0.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4288b5bcbc7920c07a1149a35cf9590a2aa808e0bc1eafaade0b80947865fbc4"
 dependencies = [
- "thiserror-impl 2.0.18",
-]
-
-[[package]]
-name = "thiserror-impl"
-version = "1.0.69"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4fee6c4efc90059e10f81e6d42c60a18f76588c3d74cb83a0b242a2b6c7504c1"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
+ "thiserror-impl",
 ]
 
 [[package]]
