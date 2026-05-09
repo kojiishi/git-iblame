@@ -353,9 +353,9 @@ dependencies = [
 
 [[package]]
 name = "git2-time-chrono-ext"
-version = "0.2.1"
+version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "46ce92e811b12dce27f7c422e1cf55e159d69f94409a28f35646527c0f845538"
+checksum = "a268b7ad871f943b6ae39f0ea8a949d3fd5c43554d5627f0c30cc22139582414"
 dependencies = [
  "chrono",
  "git2",
