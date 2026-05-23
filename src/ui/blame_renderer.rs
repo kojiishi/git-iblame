@@ -22,7 +22,7 @@ pub struct BlameRenderer {
 
 impl BlameRenderer {
     pub fn new(history: FileHistory) -> anyhow::Result<Self> {
-        let content = history.content(git2::Oid::zero())?;
+        let content = history.content(git2::Oid::ZERO_SHA1)?;
         Ok(Self {
             history,
             content,
@@ -276,7 +276,7 @@ impl BlameRenderer {
         if self.content.content_type() == ContentType::Log {
             return Ok(());
         }
-        let mut content = FileContent::new_log(git2::Oid::zero(), self.path());
+        let mut content = FileContent::new_log(git2::Oid::ZERO_SHA1, self.path());
         content.update_commits(&self.history)?;
         if content.lines_len() == 0 {
             anyhow::bail!("No commits loaded yet")

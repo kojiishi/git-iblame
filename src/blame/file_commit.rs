@@ -29,7 +29,7 @@ pub struct FileCommit {
     index: usize,
     time: git2::Time,
     summary: Option<String>,
-    author_email: Option<String>,
+    author_email: String,
     old_path: Option<PathBuf>,
     diff_parts: Vec<DiffPart>,
     is_apply_failed: AtomicBool,
@@ -43,7 +43,7 @@ impl FileCommit {
             index: 0,
             time: git2::Time::new(0, 0),
             summary: None,
-            author_email: None,
+            author_email: String::default(),
             old_path: None,
             diff_parts: Vec::new(),
             is_apply_failed: AtomicBool::new(false),
@@ -82,7 +82,7 @@ impl FileCommit {
         self.summary.as_ref()
     }
 
-    pub fn author_email(&self) -> Option<&String> {
+    pub fn author_email(&self) -> &str {
         self.author_email.as_ref()
     }
 
@@ -127,7 +127,7 @@ impl FileCommit {
         let commit_id = self.commit_id;
         debug!("read_by_git.start: {commit_id:?} {:?}", self.path);
         let commit = git.repository().find_commit(commit_id)?;
-        self.set_commit(&commit);
+        self.set_commit(&commit)?;
 
         let mut paths: Vec<&Path> = vec![];
         if !check_rename {
@@ -222,7 +222,7 @@ impl FileCommit {
         let commit_id = self.commit_id;
         debug!("read_by_git2.start: {commit_id:?} {:?}", self.path);
         let commit = git.repository().find_commit(commit_id)?;
-        self.set_commit(&commit);
+        self.set_commit(&commit)?;
 
         let parent = commit.parent(0);
         if parent.is_err() {
@@ -337,10 +337,11 @@ impl FileCommit {
         Ok(())
     }
 
-    fn set_commit(&mut self, commit: &git2::Commit) {
+    fn set_commit(&mut self, commit: &git2::Commit) -> Result<(), git2::Error> {
         self.time = commit.time();
-        self.summary = commit.summary().map(|s| s.to_string());
-        self.author_email = commit.author().email().map(|s| s.to_string());
+        self.summary = commit.summary()?.map(|s| s.to_string());
+        self.author_email = commit.author().email()?.to_string();
+        Ok(())
     }
 }
 
@@ -457,7 +458,7 @@ mod tests {
         let git = TempRepository::new()?;
         let path = Path::new("text.txt");
         git.add_file_content(path, "1\n2\n3\n4\n5\n")?;
-        let commit_id1 = git.commit(git2::Oid::zero(), "Add file")?;
+        let commit_id1 = git.commit(git2::Oid::ZERO_SHA1, "Add file")?;
 
         git.add_file_content(path, "1\n2\nX\nY\nZ\n4\n5\n")?;
         let commit_id2 = git.commit(commit_id1, "Rename file")?;
@@ -474,7 +475,7 @@ mod tests {
         // Create a dummy initial commit to avoid "no parent" code path.
         let git = TempRepository::new()?;
         git.add_file_content(Path::new("initial.txt"), "initial")?;
-        let commit_id1 = git.commit(git2::Oid::zero(), "Initial")?;
+        let commit_id1 = git.commit(git2::Oid::ZERO_SHA1, "Initial")?;
 
         // Note no new line at end of file.
         let path = Path::new("test.txt");
@@ -509,7 +510,7 @@ mod tests {
         let old_path = Path::new("old.txt");
         let new_path = Path::new("new.txt");
         git.add_file_content(old_path, "content")?;
-        let commit_id1 = git.commit(git2::Oid::zero(), "Add file")?;
+        let commit_id1 = git.commit(git2::Oid::ZERO_SHA1, "Add file")?;
 
         git.rename_file(old_path, new_path)?;
         let commit_id2 = git.commit(commit_id1, "Rename file")?;
