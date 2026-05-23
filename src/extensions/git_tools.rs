@@ -262,9 +262,9 @@ pub(crate) mod tests {
         let path = PathBuf::from("test.txt");
         let content = "Hello, world!";
         git.add_file_content(&path, content)?;
-        git.commit(git2::Oid::zero(), "Add file")?;
+        git.commit(git2::Oid::ZERO_SHA1, "Add file")?;
         assert_eq!(
-            git.git.content_as_string(git2::Oid::zero(), &path)?,
+            git.git.content_as_string(git2::Oid::ZERO_SHA1, &path)?,
             content
         );
         Ok(())

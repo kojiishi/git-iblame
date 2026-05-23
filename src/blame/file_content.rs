@@ -50,7 +50,7 @@ impl FileContent {
 
     #[cfg(test)]
     pub fn new_for_test() -> Self {
-        Self::new(git2::Oid::zero(), Path::new(""))
+        Self::new(git2::Oid::ZERO_SHA1, Path::new(""))
     }
 
     pub fn content_type(&self) -> ContentType {

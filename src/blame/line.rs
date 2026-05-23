@@ -167,13 +167,13 @@ impl Line {
                             format!("#{} {}", commit.index(), datetime)
                         }
                         LineType::Log => {
-                            format!("{} {}", datetime, commit.author_email().or_default())
+                            format!("{} {}", datetime, commit.author_email())
                         }
                     }
                     .into()
                 }
                 1 => commit.summary().map(|s| format!("  {s}")).or_default(),
-                2 => commit.author_email().map(|s| format!("  {s}")).or_default(),
+                2 => format!("  {}", commit.author_email()).into(),
                 3 => format!("  {}", commit.commit_id()).into(),
                 _ => "".into(),
             }
