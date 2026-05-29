@@ -19,7 +19,7 @@ crossterm = { version = "0.29.0", features = ["osc52"] }
 env_logger = "0.11.10"
 git2 = { version = "0.21.0", default-features = false }
 git2-time-chrono-ext = "1.0.1"
-log = "0.4.29"
+log = "0.4.30"
 regex = "1.12.3"
 thiserror = "2.0.18"
 unicode-width = "0.2.2"
