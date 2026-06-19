@@ -18,7 +18,7 @@ jobs:
       - name: Output rust version for educational purposes
         run: rustup --version
 
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Publish (crates.io)
         run: cargo publish --verbose
