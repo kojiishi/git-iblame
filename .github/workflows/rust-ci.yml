@@ -26,23 +26,24 @@ jobs:
 
       - uses: actions/checkout@v7
 
+      # https://taskfile.dev/docs/installation
+      - name: Install Task
+        uses: go-task/setup-task@v2
+
       - name: Build
-        run: cargo build --verbose
+        run: cargo build
 
       - name: Run tests
-        run: cargo test --verbose
-        env:
-          RUST_BACKTRACE: 1
+        run: task tests
 
-      - name: Run tests (git2)
-        run: cargo test -Fgit2 --verbose
-        env:
-          RUST_BACKTRACE: 1
-
-      - name: Check style
-        run: cargo fmt --all --check
+      - name: Check doc
+        run: task doc
         if: contains(matrix.os, 'ubuntu')
 
       - name: Check clippy
-        run: cargo clippy --all-targets --all-features -- -D warnings
+        run: task lints
+        if: contains(matrix.os, 'ubuntu')
+
+      - name: Check style
+        run: task fmtchk
         if: contains(matrix.os, 'ubuntu')
