@@ -2,7 +2,7 @@ use std::{borrow::Cow, fmt, io::Write};
 
 use crossterm::{queue, style};
 use git2_time_chrono_ext::Git2TimeChronoExt;
-use unicode_width::UnicodeWidthChar;
+use unicode_width_utils::UnicodeWidth;
 
 use super::{FileCommit, FileHistory};
 use crate::extensions::OrDefault;
@@ -189,12 +189,13 @@ impl Line {
         let mut width = 0;
         let mut break_index = input.len();
         let mut buffer: Option<String> = None;
+        let uw = UnicodeWidth::new();
         for (index, ch) in input.char_indices() {
             let ch_width = if ch == '\t' {
                 let next_tab = (width + Self::TAB_SIZE) / Self::TAB_SIZE * Self::TAB_SIZE;
                 next_tab - width
             } else {
-                ch.width().unwrap_or(0)
+                uw.char(ch).unwrap_or(0)
             };
             if width + ch_width > max_width {
                 break_index = index;

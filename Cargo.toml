@@ -1,6 +1,6 @@
 [package]
 name = "git-iblame"
-version = "0.10.0"
+version = "0.10.1"
 edition = "2024"
 rust-version = "1.89"
 authors = ["Koji Ishii <kojiishi@gmail.com>"]
@@ -22,7 +22,7 @@ git2-time-chrono-ext = "1.0.1"
 log = "0.4.32"
 regex = "1.12.3"
 thiserror = "2.0.18"
-unicode-width = "0.2.2"
+unicode-width-utils = "0.1.2"
 
 [features]
 git2 = []
