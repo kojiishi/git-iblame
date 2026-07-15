@@ -302,7 +302,7 @@ dependencies = [
 
 [[package]]
 name = "git-iblame"
-version = "0.10.1"
+version = "0.10.2"
 dependencies = [
  "anyhow",
  "chrono",
@@ -775,9 +775,9 @@ checksum = "b4ac048d71ede7ee76d585517add45da530660ef4390e49b098733c6e897f254"
 
 [[package]]
 name = "unicode-width-utils"
-version = "0.1.2"
+version = "0.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c534670d1336817092c561bdfbf6a250c55f5c6d0c0db3e42946796cc98478cb"
+checksum = "e2518f7591f063e82230c9013a6a79aba7f6b599931f242e9a45519896f63490"
 dependencies = [
  "unicode-width",
 ]

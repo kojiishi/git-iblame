@@ -91,7 +91,7 @@ impl Line {
         out: &mut impl Write,
         history: &FileHistory,
         is_current_line: bool,
-        max_columns: usize,
+        constraint: &LineConstraint,
     ) -> anyhow::Result<()> {
         let commit = self
             .commit_id
@@ -135,10 +135,9 @@ impl Line {
             )?;
         }
 
-        let max_main_pane = max_columns.saturating_sub(left_pane_len);
         match self.line_type {
             LineType::Line | LineType::Log => {
-                let content = Self::truncate(&self.content, max_main_pane);
+                let content = constraint.truncate(&self.content, left_pane_len);
                 queue!(out, style::Print(content))?;
             }
             LineType::Deleted => {
@@ -182,41 +181,26 @@ impl Line {
         };
         Ok(left_pane)
     }
+}
 
-    const TAB_SIZE: usize = 4;
+pub(crate) struct LineConstraint {
+    max_columns: usize,
+    uw: UnicodeWidth,
+}
 
-    fn truncate<'a>(input: &'a str, max_width: usize) -> Cow<'a, str> {
-        let mut width = 0;
-        let mut break_index = input.len();
-        let mut buffer: Option<String> = None;
-        let uw = UnicodeWidth::new();
-        for (index, ch) in input.char_indices() {
-            let ch_width = if ch == '\t' {
-                let next_tab = (width + Self::TAB_SIZE) / Self::TAB_SIZE * Self::TAB_SIZE;
-                next_tab - width
-            } else {
-                uw.char(ch).unwrap_or(0)
-            };
-            if width + ch_width > max_width {
-                break_index = index;
-                break;
-            }
-            if ch == '\t' {
-                if buffer.is_none() {
-                    let mut content = String::with_capacity(input.len() + 32);
-                    content.push_str(&input[..index]);
-                    buffer = Some(content);
-                }
-                buffer.as_mut().unwrap().push_str(&" ".repeat(ch_width));
-            } else if let Some(ref mut content) = buffer {
-                content.push(ch);
-            }
-            width += ch_width;
-        }
-        match buffer {
-            Some(content) => Cow::Owned(content),
-            None => Cow::Borrowed(&input[..break_index]),
-        }
+impl LineConstraint {
+    const TAB_SIZE: u8 = 4;
+
+    pub(crate) fn new(max_columns: usize) -> Self {
+        let mut uw = UnicodeWidth::new();
+        uw.set_tab_size(Self::TAB_SIZE);
+        uw.set_expand_tab(true);
+        Self { max_columns, uw }
+    }
+
+    fn truncate<'a>(&self, input: &'a str, margin: usize) -> Cow<'a, str> {
+        let max_columns = self.max_columns.saturating_sub(margin);
+        self.uw.truncate(input, max_columns)
     }
 }
 
@@ -226,32 +210,36 @@ mod tests {
 
     #[test]
     fn truncate() {
-        assert_eq!(Line::truncate("abc", 5), "abc");
-        assert_eq!(Line::truncate("abc", 2), "ab");
-        assert_eq!(Line::truncate("abc", 0), "");
+        let c = LineConstraint::new(5);
+        assert_eq!(c.truncate("abc", 0), "abc");
+        assert_eq!(c.truncate("abc", 3), "ab");
+        assert_eq!(c.truncate("abc", 5), "");
     }
 
     #[test]
     fn truncate_tab() {
-        assert_eq!(Line::truncate("\t", 4), "    ");
-        assert_eq!(Line::truncate("\t", 3), "");
+        let c = LineConstraint::new(5);
+        assert_eq!(c.truncate("\t", 1), "    ");
+        assert_eq!(c.truncate("\t", 2), "");
 
-        assert_eq!(Line::truncate("a\t", 5), "a   ");
-        assert_eq!(Line::truncate("a\t", 4), "a   ");
-        assert_eq!(Line::truncate("a\t", 3), "a");
+        assert_eq!(c.truncate("a\t", 0), "a   ");
+        assert_eq!(c.truncate("a\t", 1), "a   ");
+        assert_eq!(c.truncate("a\t", 2), "a");
 
-        assert_eq!(Line::truncate("123\t", 5), "123 ");
-        assert_eq!(Line::truncate("1234\t", 10), "1234    ");
+        assert_eq!(c.truncate("123\t", 0), "123 ");
+        let c = LineConstraint::new(10);
+        assert_eq!(c.truncate("1234\t", 0), "1234    ");
     }
 
     #[test]
     fn truncate_wide() {
-        assert_eq!(Line::truncate("あいうえお", 11), "あいうえお");
-        assert_eq!(Line::truncate("あいうえお", 10), "あいうえお");
-        assert_eq!(Line::truncate("あいうえお", 9), "あいうえ");
-        assert_eq!(Line::truncate("あいうえお", 8), "あいうえ");
-        assert_eq!(Line::truncate("あいうえお", 2), "あ");
-        assert_eq!(Line::truncate("あいうえお", 1), "");
-        assert_eq!(Line::truncate("あいうえお", 0), "");
+        let c = LineConstraint::new(11);
+        assert_eq!(c.truncate("あいうえお", 0), "あいうえお");
+        assert_eq!(c.truncate("あいうえお", 1), "あいうえお");
+        assert_eq!(c.truncate("あいうえお", 2), "あいうえ");
+        assert_eq!(c.truncate("あいうえお", 3), "あいうえ");
+        assert_eq!(c.truncate("あいうえお", 9), "あ");
+        assert_eq!(c.truncate("あいうえお", 10), "");
+        assert_eq!(c.truncate("あいうえお", 11), "");
     }
 }
