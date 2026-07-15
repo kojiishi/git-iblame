@@ -413,6 +413,7 @@ impl BlameRenderer {
     {
         let mut row = start_row;
         let current_line_index = self.current_line_index();
+        let constraint = LineConstraint::new(self.view_cols() as usize);
         for (line_index, line) in (start_line_index..).zip(lines) {
             queue!(out, cursor::MoveTo(0, row))?;
             if should_clear_lines {
@@ -422,7 +423,7 @@ impl BlameRenderer {
                 out,
                 self.history(),
                 line_index == current_line_index,
-                self.view_cols() as usize,
+                &constraint,
             )?;
             row += 1;
         }
