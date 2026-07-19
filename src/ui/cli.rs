@@ -5,7 +5,7 @@ use std::{
 };
 
 use clap::Parser;
-#[cfg(not(feature = "arboard"))]
+#[cfg(not(any(target_os = "macos", feature = "arboard")))]
 use crossterm::clipboard::CopyToClipboard;
 use crossterm::{cursor, execute, terminal};
 use git2::Oid;
@@ -175,12 +175,12 @@ impl Cli {
             }
             Command::Copy => {
                 if let Ok(commit_id) = renderer.current_line_commit_id() {
-                    #[cfg(feature = "arboard")]
+                    #[cfg(any(target_os = "macos", feature = "arboard"))]
                     {
                         let mut clipboard = arboard::Clipboard::new()?;
                         clipboard.set_text(commit_id.to_string())?;
                     }
-                    #[cfg(not(feature = "arboard"))]
+                    #[cfg(not(any(target_os = "macos", feature = "arboard")))]
                     {
                         execute!(
                             out,

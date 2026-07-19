@@ -82,9 +82,9 @@ cargo install --path .
 
 * **arboard**: Uses the [`arboard`] crate for clipboard copy operations,
   instead of OSC 52 sequence.
-  This is recommended if your terminal doesn't support OSC 52,
-  such as the macOS default Terminal app.
-  To install with the `arboard` feature:
+  This feature is enabled by default on macOS,
+  as the macOS default Terminal app doesn't support OSC 52.
+  To install with the `arboard` feature on other platforms:
   ```shell-session
   cargo install git-iblame --features arboard
   ```
