@@ -76,6 +76,19 @@ After changing the current directory to the checkout directory:
 cargo install --path .
 ```
 
+## Cargo Features
+
+`git-iblame` has the following optional cargo features:
+
+* **arboard**: Uses the [`arboard`] crate for clipboard copy operations,
+  instead of OSC 52 sequence.
+  This is recommended if your terminal doesn't support OSC 52,
+  such as the macOS default Terminal app.
+  To install with the `arboard` feature:
+  ```shell-session
+  cargo install git-iblame --features arboard
+  ```
+
 # Usages
 
 To start an interactive `git blame` session,
@@ -116,4 +129,5 @@ Major commands are:
 
 Please see the [release notes].
 
+[`arboard`]: https://docs.rs/arboard/
 [release notes]: https://github.com/kojiishi/git-iblame/releases
