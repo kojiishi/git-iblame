@@ -57,7 +57,7 @@ vars:
   CLIPPY: '-- -Dwarnings'
   DOC: --no-deps --workspace
   FEATURE: ''
-  FEATURES: ['', '--all-features']
+  FEATURES: ['', '-Farboard', '--all-features']
   FMT: '--all'
   RUSTDOC: -Dwarnings
   TARGET: '--all-targets'

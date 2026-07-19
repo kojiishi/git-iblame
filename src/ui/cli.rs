@@ -5,7 +5,9 @@ use std::{
 };
 
 use clap::Parser;
-use crossterm::{clipboard::CopyToClipboard, cursor, execute, terminal};
+#[cfg(not(feature = "arboard"))]
+use crossterm::clipboard::CopyToClipboard;
+use crossterm::{cursor, execute, terminal};
 use git2::Oid;
 use log::debug;
 
@@ -173,10 +175,18 @@ impl Cli {
             }
             Command::Copy => {
                 if let Ok(commit_id) = renderer.current_line_commit_id() {
-                    execute!(
-                        out,
-                        CopyToClipboard::to_clipboard_from(commit_id.to_string())
-                    )?;
+                    #[cfg(feature = "arboard")]
+                    {
+                        let mut clipboard = arboard::Clipboard::new()?;
+                        clipboard.set_text(commit_id.to_string())?;
+                    }
+                    #[cfg(not(feature = "arboard"))]
+                    {
+                        execute!(
+                            out,
+                            CopyToClipboard::to_clipboard_from(commit_id.to_string())
+                        )?;
+                    }
                     ui.set_prompt("Copied to clipboard".to_string());
                 }
             }
