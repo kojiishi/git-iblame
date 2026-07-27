@@ -5,6 +5,7 @@ use std::{
 
 use anyhow::*;
 use log::*;
+use simple_path::SimplePath;
 
 pub struct GitTools {
     repository: git2::Repository,
@@ -36,8 +37,8 @@ impl GitTools {
     fn from_repository(repository: git2::Repository) -> anyhow::Result<Self> {
         let workdir_path = repository
             .workdir()
-            .ok_or_else(|| anyhow!("Bare repository is not supported"))?
-            .canonicalize()?;
+            .ok_or_else(|| anyhow!("Bare repository is not supported"))?;
+        let workdir_path = SimplePath::default().canonicalize(workdir_path)?;
         log::debug!("git.repository: {:?}", repository.path());
         log::debug!("git.workdir: {workdir_path:?}");
         Ok(Self {
@@ -81,13 +82,13 @@ impl GitTools {
         self.repository.path()
     }
 
-    /// Get the canonicalized root directory of the worktree .
+    /// Get the canonicalized root directory of the worktree.
     pub(crate) fn workdir_path(&self) -> &Path {
         &self.workdir_path
     }
 
     pub fn path_in_workdir(&self, path: &Path) -> anyhow::Result<PathBuf> {
-        let path = path.canonicalize()?;
+        let path = SimplePath::default().canonicalize(path)?;
         let path = path.strip_prefix(self.workdir_path())?;
         Ok(Self::to_posix_path(path))
     }
