@@ -25,7 +25,7 @@ git2 = { version = "0.21.0", default-features = false }
 git2-time-chrono-ext = "1.0.1"
 log = "0.4.32"
 regex = "1.12.3"
-simple-path = "0.4.2"
+simple-path = "0.5.0"
 thiserror = "2.0.18"
 unicode-width-utils = "0.2.0"
 
