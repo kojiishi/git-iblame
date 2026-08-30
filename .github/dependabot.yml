@@ -12,6 +12,13 @@ updates:
       dependencies:
         patterns:
           - '*'
+    cooldown:
+      default-days: 3
+      include:
+        - "*"
+      exclude:
+        - "simple-path"
+        - "unicode-width-utils"
 
   - package-ecosystem: "github-actions"
     directory: "/"
