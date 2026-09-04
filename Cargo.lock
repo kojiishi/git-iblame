@@ -1081,9 +1081,9 @@ checksum = "b4ac048d71ede7ee76d585517add45da530660ef4390e49b098733c6e897f254"
 
 [[package]]
 name = "unicode-width-utils"
-version = "0.3.0"
+version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cc10dc913f31482bb8d0137fb215d97a436c003037f10a9dbf39fb7a7dd19973"
+checksum = "6610390dc96f6b19d034b74b6bdeaa0d3ecfc452549db7aeb496c4dcfb8c67fa"
 dependencies = [
  "unicode-width",
 ]
